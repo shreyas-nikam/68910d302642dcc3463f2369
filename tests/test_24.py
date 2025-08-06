@@ -1,13 +1,21 @@
 import pytest
-import numpy as np
-from definition_5b398579faf146c28d3d4f6ee18dfb1a import mae
+from definition_f22615010fbf4c359f7481839d80deac import plot_box_violin
+import matplotlib.pyplot as plt
 
-@pytest.mark.parametrize("y_true, y_pred, expected", [
-    (np.array([1, 2, 3]), np.array([1, 2, 3]), 0),
-    (np.array([1, 2, 3]), np.array([4, 5, 6]), 3),
-    (np.array([1, 2, 3]), np.array([0, 0, 0]), 2),
-    (np.array([1.0, 2.0, 3.0]), np.array([1.5, 2.5, 3.5]), 0.5),
-    (np.array([1, 2, 3]), np.array([3, 2, 1]), 4/3),
-])
-def test_mae(y_true, y_pred, expected):
-    assert mae(y_true, y_pred) == expected
+def test_plot_box_violin_no_data():
+    """Test the function handles the case where there's no data to plot."""
+    try:
+        plot_box_violin()
+    except Exception as e:
+        assert False, f"plot_box_violin raised an exception {e}"
+    #This test case does not explicitly plot.
+    #Rather it tests to see if the function executes
+
+def test_plot_box_violin_creates_figure():
+    """Test that the function at least attempts to create a figure."""
+    try:
+      plt.close() #To avoid interference with previous plots if any.
+      plot_box_violin()
+      assert plt.gcf().number > 0 #Check figure was created
+    except Exception as e:
+        assert False, f"plot_box_violin raised an exception {e}"
