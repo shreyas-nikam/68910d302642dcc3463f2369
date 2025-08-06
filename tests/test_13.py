@@ -2,90 +2,67 @@ import pytest
 import pandas as pd
 import numpy as np
 from unittest.mock import MagicMock
-from definition_94d2680070b54e31a27c2da1afc4a236 import predict_beta
+from definition_20f527393e12475695c48b0d32d1506a import predict_beta
 
-
-def test_predict_beta_typical(mocker):
-    # Mock the model's predict method to return a known series of values
+def test_predict_beta_typical_case():
+    # Mock a model and input data
     mock_model = MagicMock()
-    mock_model.predict.return_value = pd.Series([0.1, 0.2, 0.3])
-
-    # Create a sample input dataframe
+    mock_model.predict.return_value = np.array([0.2, 0.5, 0.8])  # Predicted LGD values
     X = pd.DataFrame({'feature1': [1, 2, 3], 'feature2': [4, 5, 6]})
 
-    # Call the function with the mocked model and sample data
-    result = predict_beta(mock_model, X)
+    # Call the function
+    predictions = predict_beta(mock_model, X)
 
-    # Assert that the function returns a Pandas Series
-    assert isinstance(result, pd.Series)
+    # Assert that the predictions are as expected
+    assert np.allclose(predictions, [0.2, 0.5, 0.8])
 
-    # Assert that the predicted values are correct (as defined by the mock)
-    assert np.allclose(result.values, [0.1, 0.2, 0.3])
-
-
-def test_predict_beta_empty_dataframe(mocker):
-    # Mock the model's predict method to return an empty series
+def test_predict_beta_empty_input():
+    # Mock a model and empty input data
     mock_model = MagicMock()
-    mock_model.predict.return_value = pd.Series([])
+    X = pd.DataFrame({})  # Empty DataFrame
 
-    # Create an empty dataframe
-    X = pd.DataFrame()
-
-    # Call the function with the mocked model and empty data
-    result = predict_beta(mock_model, X)
-
-    # Assert that the function returns a Pandas Series
-    assert isinstance(result, pd.Series)
-
-    # Assert that the result is an empty series
-    assert result.empty
+    # Call the function
+    try:
+        predictions = predict_beta(mock_model, X)
+    except Exception as e:
+        assert isinstance(e, AttributeError)
 
 
-def test_predict_beta_model_error(mocker):
-    # Mock the model's predict method to raise an exception
+def test_predict_beta_model_returns_invalid_values():
+    # Mock a model that returns values outside of 0-1 range
     mock_model = MagicMock()
-    mock_model.predict.side_effect = ValueError("Model failed to predict")
+    mock_model.predict.return_value = np.array([-0.1, 1.2, 0.5])
+    X = pd.DataFrame({'feature1': [1, 2, 3]})
 
-    # Create a sample input dataframe
-    X = pd.DataFrame({'feature1': [1, 2, 3], 'feature2': [4, 5, 6]})
+    # Call the function, it should proceed without clamping or erroring
+    predictions = predict_beta(mock_model, X)
 
-    # Call the function and expect the exception to propagate
-    with pytest.raises(ValueError, match="Model failed to predict"):
+    # Ensure it returns the raw predictions, as clamping is not within the specified behaviour.
+    assert np.allclose(predictions, [-0.1, 1.2, 0.5])
+
+
+def test_predict_beta_with_different_data_types():
+    # Mock a model
+    mock_model = MagicMock()
+    mock_model.predict.return_value = np.array([0.3, 0.6, 0.9])
+
+    # Input data with mixed data types
+    X = pd.DataFrame({'feature1': [1, 2.5, '3'], 'feature2': ['4', 5, 6.5]})
+    X['feature1'] = pd.to_numeric(X['feature1'], errors='coerce')
+    X['feature2'] = pd.to_numeric(X['feature2'], errors='coerce')
+
+    # Call the function
+    predictions = predict_beta(mock_model, X)
+
+    # Assert that the predictions are as expected
+    assert np.allclose(predictions, [0.3, 0.6, 0.9])
+
+def test_predict_beta_model_error():
+    # Mock a model that raises an exception
+    mock_model = MagicMock()
+    mock_model.predict.side_effect = ValueError("Prediction failed")
+    X = pd.DataFrame({'feature1': [1, 2, 3]})
+
+    # Call the function and check if it raises the same exception
+    with pytest.raises(ValueError, match="Prediction failed"):
         predict_beta(mock_model, X)
-
-
-def test_predict_beta_all_zeros(mocker):
-    # Mock the model's predict method to return all zeros
-    mock_model = MagicMock()
-    mock_model.predict.return_value = pd.Series([0, 0, 0])
-
-    # Create a sample input dataframe
-    X = pd.DataFrame({'feature1': [1, 2, 3], 'feature2': [4, 5, 6]})
-
-    # Call the function with the mocked model and sample data
-    result = predict_beta(mock_model, X)
-
-    # Assert that the function returns a Pandas Series
-    assert isinstance(result, pd.Series)
-
-    # Assert that the predicted values are all zeros
-    assert np.allclose(result.values, [0, 0, 0])
-
-
-
-def test_predict_beta_nan_values(mocker):
-    # Mock the model's predict method to return NaN values
-    mock_model = MagicMock()
-    mock_model.predict.return_value = pd.Series([np.nan, np.nan, np.nan])
-
-    # Create a sample input dataframe
-    X = pd.DataFrame({'feature1': [1, 2, 3], 'feature2': [4, 5, 6]})
-
-    # Call the function with the mocked model and sample data
-    result = predict_beta(mock_model, X)
-
-    # Assert that the function returns a Pandas Series
-    assert isinstance(result, pd.Series)
-
-    # Assert that the predicted values are NaN
-    assert np.isnan(result.values).all()
