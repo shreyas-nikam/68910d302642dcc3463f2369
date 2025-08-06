@@ -1,44 +1,42 @@
 import pytest
 import pandas as pd
-from definition_24928f375a86473392cb763d0ca4c4fd import align_macro_with_cohorts
+import numpy as np
+from definition_2b5eca8cce6c4fcd966112a844ddedc7 import calibration_bins
 
-@pytest.fixture
-def mock_macro_df():
-    return pd.DataFrame({
-        'date': pd.to_datetime(['2023-01-01', '2023-04-01', '2023-07-01', '2023-10-01']),
-        'unemployment_rate': [4.0, 4.1, 4.2, 4.3]
-    })
+def test_calibration_bins_empty():
+    y_true = pd.Series([])
+    y_pred = pd.Series([])
+    n_bins = 10
+    result = calibration_bins(y_true, y_pred, n_bins)
+    assert result.empty
 
-@pytest.fixture
-def mock_cohorts_df():
-    return pd.DataFrame({
-        'loan_id': [1, 2, 3, 4],
-        'default_quarter': ['2023-01-01', '2023-04-01', '2023-07-01', '2023-10-01']
-    })
+def test_calibration_bins_perfect_calibration():
+    y_true = pd.Series([0, 0, 1, 1, 0, 1])
+    y_pred = pd.Series([0.1, 0.2, 0.8, 0.9, 0.2, 0.7])
+    n_bins = 3
+    result = calibration_bins(y_true, y_pred, n_bins)
+    assert not result.empty
+    assert len(result) == n_bins
 
-def test_align_macro_with_cohorts_no_lag(mock_macro_df, mock_cohorts_df):
-    # Test case 1: No lag
-    result = align_macro_with_cohorts(mock_macro_df, mock_cohorts_df, lag_q=0)
-    assert result is not None
+def test_calibration_bins_miscalibration():
+    y_true = pd.Series([0, 0, 1, 1, 0, 1])
+    y_pred = pd.Series([0.8, 0.9, 0.1, 0.2, 0.7, 0.2])
+    n_bins = 3
+    result = calibration_bins(y_true, y_pred, n_bins)
+    assert not result.empty
+    assert len(result) == n_bins
 
-def test_align_macro_with_cohorts_with_lag(mock_macro_df, mock_cohorts_df):
-        # Test case 2: With lag
-    result = align_macro_with_cohorts(mock_macro_df, mock_cohorts_df, lag_q=1)
-    assert result is not None
+def test_calibration_bins_n_bins_greater_than_data():
+    y_true = pd.Series([0, 1])
+    y_pred = pd.Series([0.2, 0.8])
+    n_bins = 5
+    result = calibration_bins(y_true, y_pred, n_bins)
+    assert not result.empty
+    assert len(result) == n_bins
 
-def test_align_macro_with_cohorts_empty_macro(mock_cohorts_df):
-    # Test case 3: Empty macro dataframe
-    macro_df = pd.DataFrame({'date': [], 'unemployment_rate': []})
-    result = align_macro_with_cohorts(macro_df, mock_cohorts_df, lag_q=1)
-    assert result is not None
-
-def test_align_macro_with_cohorts_empty_cohorts(mock_macro_df):
-    # Test case 4: Empty cohorts dataframe
-    cohorts_df = pd.DataFrame({'loan_id': [], 'default_quarter': []})
-    result = align_macro_with_cohorts(mock_macro_df, cohorts_df, lag_q=1)
-    assert result is not None
-
-def test_align_macro_with_cohorts_invalid_lag(mock_macro_df, mock_cohorts_df):
-    # Test case 5: Invalid lag value
-    result = align_macro_with_cohorts(mock_macro_df, mock_cohorts_df, lag_q=-1)
-    assert result is not None
+def test_calibration_bins_different_lengths():
+    y_true = pd.Series([0, 1])
+    y_pred = pd.Series([0.2, 0.8, 0.5])
+    n_bins = 2
+    with pytest.raises(ValueError):
+        calibration_bins(y_true, y_pred, n_bins)
