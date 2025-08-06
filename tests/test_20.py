@@ -1,44 +1,32 @@
 import pytest
 import pandas as pd
-from definition_b4abf398c37d41f89b6e75b83f410f9f import aggregate_lgd_by_cohort
+import numpy as np
+from definition_6c33e6091e3a47798db544a78b9037a5 import mae
 
-@pytest.fixture
-def sample_df():
-    data = {'default_quarter': ['2020Q1', '2020Q1', '2020Q2', '2020Q2', '2020Q3'],
-            'LGD_realized': [0.1, 0.2, 0.3, 0.4, 0.5]}
-    return pd.DataFrame(data)
+def test_mae_valid_input():
+    y_true = pd.Series([0.1, 0.2, 0.3, 0.4, 0.5])
+    y_pred = pd.Series([0.11, 0.22, 0.29, 0.41, 0.49])
+    expected_mae = 0.012  # Calculated manually
+    assert np.isclose(mae(y_true, y_pred), expected_mae)
 
-def test_aggregate_lgd_by_cohort_empty_df():
-    df = pd.DataFrame({'default_quarter': [], 'LGD_realized': []})
-    result = aggregate_lgd_by_cohort(df)
-    assert result.empty
+def test_mae_empty_series():
+    y_true = pd.Series([])
+    y_pred = pd.Series([])
+    assert mae(y_true, y_pred) == 0.0
 
-def test_aggregate_lgd_by_cohort_standard(sample_df):
-    result = aggregate_lgd_by_cohort(sample_df)
-    expected_data = {'default_quarter': ['2020Q1', '2020Q2', '2020Q3'],
-                     'LGD_realized': [0.15, 0.35, 0.5]}
-    expected = pd.DataFrame(expected_data)
-    expected = expected.set_index('default_quarter')
+def test_mae_different_lengths():
+    y_true = pd.Series([0.1, 0.2, 0.3])
+    y_pred = pd.Series([0.1, 0.2])
+    with pytest.raises(ValueError):
+        mae(y_true, y_pred)
 
-    pd.testing.assert_frame_equal(result, expected)
+def test_mae_identical_series():
+    y_true = pd.Series([0.1, 0.2, 0.3])
+    y_pred = pd.Series([0.1, 0.2, 0.3])
+    assert mae(y_true, y_pred) == 0.0
 
-def test_aggregate_lgd_by_cohort_missing_lgd(sample_df):
-    sample_df['LGD_realized'] = None
-    result = aggregate_lgd_by_cohort(sample_df)
-
-    expected_data = {'default_quarter': ['2020Q1', '2020Q2', '2020Q3'],
-                     'LGD_realized': [None, None, None]}
-    expected = pd.DataFrame(expected_data)
-    expected = expected.set_index('default_quarter')
-    pd.testing.assert_frame_equal(result, expected)
-
-def test_aggregate_lgd_by_cohort_single_cohort():
-    data = {'default_quarter': ['2020Q1', '2020Q1', '2020Q1'],
-            'LGD_realized': [0.1, 0.2, 0.3]}
-    df = pd.DataFrame(data)
-    result = aggregate_lgd_by_cohort(df)
-    expected_data = {'default_quarter': ['2020Q1'],
-                     'LGD_realized': [0.2]}
-    expected = pd.DataFrame(expected_data)
-    expected = expected.set_index('default_quarter')
-    pd.testing.assert_frame_equal(result, expected)
+def test_mae_negative_values():
+   y_true = pd.Series([-0.1, 0.2, 0.3])
+   y_pred = pd.Series([0.1, 0.2, -0.3])
+   expected_mae = 0.2 #Calculated manually abs(-0.1-0.1) + abs(0.2-0.2) + abs(0.3-(-0.3)) / 3
+   assert np.isclose(mae(y_true, y_pred), expected_mae)
