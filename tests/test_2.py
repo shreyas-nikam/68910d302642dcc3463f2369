@@ -1,46 +1,40 @@
 import pytest
 import pandas as pd
-from definition_78108f9df9994cfa9a1c3114e5a75fe8 import segment_portfolio
+from unittest.mock import MagicMock
+from definition_914f7156b1c34870935cc2b1174d517b import train_pit_overlay_model
 
-@pytest.fixture
-def sample_data():
-    data = pd.DataFrame({
-        'grade_group': ['A', 'B', 'A', 'C', 'B'],
-        'cure_status': [True, False, True, False, True],
-        'loan_amount': [1000, 2000, 1500, 2500, 1800]
-    })
-    return data
+def test_train_pit_overlay_model_basic():
+    ttc_lgd = pd.Series([0.1, 0.2, 0.3])
+    macroeconomic_data = pd.DataFrame({'unemployment': [5, 6, 7]})
+    macroeconomic_features = ['unemployment']
+    
+    model = train_pit_overlay_model(ttc_lgd, macroeconomic_data, macroeconomic_features)
+    assert model is not None
 
-def test_segment_portfolio_empty_criteria(sample_data):
-    segments = segment_portfolio(sample_data.copy(), {})
-    assert len(segments) == 1
-    assert 'All' in segments
-    pd.testing.assert_frame_equal(segments['All'], sample_data)
+def test_train_pit_overlay_model_no_features():
+    ttc_lgd = pd.Series([0.1, 0.2, 0.3])
+    macroeconomic_data = pd.DataFrame({'unemployment': [5, 6, 7]})
+    macroeconomic_features = []
+    
+    model = train_pit_overlay_model(ttc_lgd, macroeconomic_data, macroeconomic_features)
+    assert model is not None
 
-def test_segment_portfolio_single_criteria(sample_data):
-    segmentation_criteria = {'grade_group': ['A', 'B']}
-    segments = segment_portfolio(sample_data.copy(), segmentation_criteria)
-    assert len(segments) == 1
-    assert 'grade_group_A_B' in segments
-    expected_df = sample_data[sample_data['grade_group'].isin(['A', 'B'])]
-    pd.testing.assert_frame_equal(segments['grade_group_A_B'], expected_df)
+def test_train_pit_overlay_model_empty_data():
+    ttc_lgd = pd.Series([0.1, 0.2, 0.3])
+    macroeconomic_data = pd.DataFrame()
+    macroeconomic_features = ['unemployment']
 
-def test_segment_portfolio_multiple_criteria(sample_data):
-    segmentation_criteria = {'grade_group': ['A', 'B'], 'cure_status': [True]}
-    segments = segment_portfolio(sample_data.copy(), segmentation_criteria)
-    assert len(segments) == 1
-    assert 'grade_group_A_B_cure_status_True' in segments
-    expected_df = sample_data[sample_data['grade_group'].isin(['A', 'B']) & sample_data['cure_status'].isin([True])]
-    pd.testing.assert_frame_equal(segments['grade_group_A_B_cure_status_True'], expected_df)
-
-def test_segment_portfolio_no_matching_data(sample_data):
-    segmentation_criteria = {'grade_group': ['D', 'E']}
-    segments = segment_portfolio(sample_data.copy(), segmentation_criteria)
-    assert len(segments) == 1
-    assert 'grade_group_D_E' in segments
-    assert segments['grade_group_D_E'].empty
-
-def test_segment_portfolio_invalid_data_type(sample_data):
-    segmentation_criteria = {'loan_amount': ['invalid']}
+    with pytest.raises(ValueError):
+        train_pit_overlay_model(ttc_lgd, macroeconomic_data, macroeconomic_features)
+        
+def test_train_pit_overlay_model_invalid_input():
     with pytest.raises(TypeError):
-        segment_portfolio(sample_data.copy(), segmentation_criteria)
+        train_pit_overlay_model("invalid", "invalid", "invalid")
+
+def test_train_pit_overlay_model_missing_macro_feature():
+    ttc_lgd = pd.Series([0.1, 0.2, 0.3])
+    macroeconomic_data = pd.DataFrame({'inflation': [1,2,3]})
+    macroeconomic_features = ['unemployment']
+    
+    with pytest.raises(ValueError):
+        train_pit_overlay_model(ttc_lgd, macroeconomic_data, macroeconomic_features)
