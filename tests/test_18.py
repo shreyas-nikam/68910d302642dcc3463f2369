@@ -1,36 +1,39 @@
 import pytest
 import pandas as pd
-import numpy as np
-from definition_607f5b4b9ecc488288f0b475858b412e import predict_beta
+from sklearn.linear_model import LinearRegression
+from definition_76fcade333554c37ae1130fef3836a9a import fit_pit_overlay
 
-class MockModel:
-    def __init__(self, coef):
-        self.coef_ = coef
+def test_fit_pit_overlay_valid_input():
+    # Test with valid DataFrames and Series
+    X = pd.DataFrame({'macro1': [1, 2, 3], 'macro2': [4, 5, 6]})
+    y = pd.Series([0.1, 0.2, 0.3])
+    model = fit_pit_overlay(X, y)
+    assert isinstance(model, LinearRegression)
 
-@pytest.fixture
-def sample_X():
-    return pd.DataFrame({'feature1': [1, 2, 3], 'feature2': [4, 5, 6]})
-
-def test_predict_beta_basic(sample_X):
-    model = MockModel(np.array([0.5, -0.2]))
-    predictions = predict_beta(model, sample_X)
-    assert isinstance(predictions, np.ndarray)
-
-def test_predict_beta_all_zeros(sample_X):
-    model = MockModel(np.array([0, 0]))
-    predictions = predict_beta(model, sample_X)
-
-def test_predict_beta_large_coefficients(sample_X):
-    model = MockModel(np.array([5, -5]))
-    predictions = predict_beta(model, sample_X)
-
-def test_predict_beta_empty_dataframe():
-    model = MockModel(np.array([0.5, -0.2]))
+def test_fit_pit_overlay_empty_input():
+    # Test with empty DataFrames and Series
     X = pd.DataFrame()
-    with pytest.raises(Exception):
-        predict_beta(model, X)
+    y = pd.Series()
+    with pytest.raises(ValueError):
+        fit_pit_overlay(X, y)
 
-def test_predict_beta_invalid_model_type(sample_X):
-    model = "not a model"
-    with pytest.raises(Exception):
-        predict_beta(model, sample_X)
+def test_fit_pit_overlay_mismatched_length():
+    # Test when X and y have different lengths
+    X = pd.DataFrame({'macro1': [1, 2, 3]})
+    y = pd.Series([0.1, 0.2])
+    with pytest.raises(ValueError):
+        fit_pit_overlay(X, y)
+
+def test_fit_pit_overlay_non_numeric_input():
+    # Test when X contains non-numeric values
+    X = pd.DataFrame({'macro1': ['a', 'b', 'c']})
+    y = pd.Series([0.1, 0.2, 0.3])
+    with pytest.raises(TypeError):
+        fit_pit_overlay(X, y)
+
+def test_fit_pit_overlay_y_out_of_range():
+    # Test when y contains values outside the range [0, 1] (LGD should be between 0 and 1)
+    X = pd.DataFrame({'macro1': [1, 2, 3]})
+    y = pd.Series([-0.1, 1.2, 0.5]) # Added 1.2 which is > 1
+    model = fit_pit_overlay(X, y) #Should not raise error. Linear Regression can be fit to data out of range 0-1.
+    assert isinstance(model, LinearRegression)
