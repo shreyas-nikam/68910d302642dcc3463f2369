@@ -1,40 +1,50 @@
 import pytest
 import pandas as pd
-import numpy as np
-from definition_9fe56ed60dc24197ab2dcab015280a37 import fit_fractional_logit
-from sklearn.exceptions import NotFittedError
+from definition_5a61c14bea4848949831b98985e1099f import aggregate_lgd_by_cohort
 
-def test_fit_fractional_logit_empty_input():
-    """Test that the function handles empty input data correctly."""
-    X = pd.DataFrame()
-    y = pd.Series()
-    with pytest.raises(Exception):  # Expecting an error due to empty data
-        fit_fractional_logit(X, y)
+@pytest.fixture
+def sample_df():
+    data = {'origination_date': pd.to_datetime(['2020-01-01', '2020-01-01', '2020-02-01', '2020-02-01', '2020-03-01']),
+            'lgd': [0.1, 0.2, 0.3, 0.4, 0.5]}
+    return pd.DataFrame(data)
 
-def test_fit_fractional_logit_invalid_input_type():
-    """Test the function raises an error when input types are invalid."""
-    with pytest.raises(TypeError):
-        fit_fractional_logit("invalid", "invalid")
+def test_aggregate_lgd_by_cohort_empty_df():
+    df = pd.DataFrame()
+    result = aggregate_lgd_by_cohort(df)
+    assert result.empty
 
-def test_fit_fractional_logit_valid_input_no_error():
-    """Test that the function runs with valid dataframe and series input without error."""
-    X = pd.DataFrame({'feature1': [1, 2, 3], 'feature2': [4, 5, 6]})
-    y = pd.Series([0.1, 0.5, 0.9])
-    try:
-        fit_fractional_logit(X, y)
-    except Exception as e:
-        assert False, f"fit_fractional_logit raised an exception {e}"
-        
-def test_fit_fractional_logit_no_features():
-    """Test that the function handles case when there is no input features"""
-    X = pd.DataFrame()
-    y = pd.Series([0.1, 0.5, 0.9])
-    with pytest.raises(Exception): # expect error due to not enough data
-        fit_fractional_logit(X,y)
+def test_aggregate_lgd_by_cohort_basic_aggregation(sample_df):
+    result = aggregate_lgd_by_cohort(sample_df)
+    expected_data = {'origination_date': pd.to_datetime(['2020-01-01', '2020-02-01', '2020-03-01']),
+                     'lgd': [0.15, 0.35, 0.5]}
+    expected = pd.DataFrame(expected_data).set_index('origination_date')
+    pd.testing.assert_frame_equal(result, expected)
 
-def test_fit_fractional_logit_y_not_fraction():
-    """Test that the function handles case when y is not between 0 and 1"""
-    X = pd.DataFrame({'feature1': [1, 2, 3], 'feature2': [4, 5, 6]})
-    y = pd.Series([1, 5, 9])
-    with pytest.raises(Exception): # expect error due to not enough data
-        fit_fractional_logit(X,y)
+def test_aggregate_lgd_by_cohort_with_other_columns(sample_df):
+    sample_df['loan_amount'] = [1000, 2000, 1500, 2500, 3000]
+    result = aggregate_lgd_by_cohort(sample_df)
+    expected_data = {'origination_date': pd.to_datetime(['2020-01-01', '2020-02-01', '2020-03-01']),
+                     'lgd': [0.15, 0.35, 0.5]}
+    expected = pd.DataFrame(expected_data).set_index('origination_date')
+    pd.testing.assert_frame_equal(result, expected)
+
+def test_aggregate_lgd_by_cohort_different_date_formats():
+    data = {'origination_date': ['2020-01-01', '2020-01-01', '2020-02-01', '2020-02-01', '2020-03-01'],
+            'lgd': [0.1, 0.2, 0.3, 0.4, 0.5]}
+    df = pd.DataFrame(data)
+    df['origination_date'] = pd.to_datetime(df['origination_date'])
+    result = aggregate_lgd_by_cohort(df)
+    expected_data = {'origination_date': pd.to_datetime(['2020-01-01', '2020-02-01', '2020-03-01']),
+                     'lgd': [0.15, 0.35, 0.5]}
+    expected = pd.DataFrame(expected_data).set_index('origination_date')
+    pd.testing.assert_frame_equal(result, expected)
+
+def test_aggregate_lgd_by_cohort_missing_lgd_values():
+    data = {'origination_date': pd.to_datetime(['2020-01-01', '2020-01-01', '2020-02-01', '2020-02-01', '2020-03-01']),
+            'lgd': [0.1, None, 0.3, 0.4, 0.5]}
+    df = pd.DataFrame(data)
+    result = aggregate_lgd_by_cohort(df)
+    expected_data = {'origination_date': pd.to_datetime(['2020-01-01', '2020-02-01', '2020-03-01']),
+                     'lgd': [0.1, 0.35, 0.5]}
+    expected = pd.DataFrame(expected_data).set_index('origination_date')
+    pd.testing.assert_frame_equal(result, expected)
