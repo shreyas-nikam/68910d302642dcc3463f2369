@@ -1,42 +1,57 @@
 import pytest
+from definition_2cbf4eda08224d6081bb3366683f7617 import plot_corr_heatmap
+import matplotlib.pyplot as plt
 import pandas as pd
-from definition_05f7fb93dc7341119387fa6756255421 import calibration_bins
+import numpy as np
+import seaborn as sns
 
-@pytest.fixture
-def sample_data():
-    y_true = pd.Series([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
-    y_pred = pd.Series([0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95, 1.05])
-    return y_true, y_pred
+def test_plot_corr_heatmap_empty_dataframe():
+    # Test with an empty DataFrame to ensure no errors are raised
+    df = pd.DataFrame()
+    try:
+        plot_corr_heatmap()
+    except Exception as e:
+        assert False, f"plot_corr_heatmap raised an exception: {e}"
 
-def test_calibration_bins_default(sample_data):
-    y_true, y_pred = sample_data
-    result = calibration_bins(y_true, y_pred, n_bins=10)
-    assert isinstance(result, pd.DataFrame)
-    assert len(result) == 10
-    assert 'mean_predicted' in result.columns
-    assert 'mean_actual' in result.columns
+def test_plot_corr_heatmap_insufficient_numeric_columns():
+    # Test when fewer than 2 numeric columns are present.
+    df = pd.DataFrame({'col1': [1, 2, 3], 'col2': ['a', 'b', 'c']})
+    try:
+       plot_corr_heatmap()
+    except Exception as e:
+       assert False, f"plot_corr_heatmap raised an exception: {e}"
 
-def test_calibration_bins_empty_input():
-    y_true = pd.Series([])
-    y_pred = pd.Series([])
-    result = calibration_bins(y_true, y_pred, n_bins=5)
-    assert isinstance(result, pd.DataFrame)
-    assert len(result) == 0
+def test_plot_corr_heatmap_basic():
+    # Create a simple DataFrame for correlation calculation.
+    df = pd.DataFrame({'col1': [1, 2, 3, 4, 5],
+                       'col2': [2, 4, 6, 8, 10],
+                       'col3': [5, 4, 3, 2, 1]})
 
-def test_calibration_bins_different_lengths():
-    y_true = pd.Series([0.1, 0.2, 0.3])
-    y_pred = pd.Series([0.15, 0.25, 0.35, 0.45])
-    with pytest.raises(ValueError):
-        calibration_bins(y_true, y_pred, n_bins=3)
+    try:
+        plot_corr_heatmap()
+        # Check if a plot was generated (basic check - difficult to directly assert plot content)
+        assert plt.gcf().get_axes(), "No plot was generated."
+        plt.close()  # Close the plot to avoid interference with other tests
+    except Exception as e:
+        assert False, f"plot_corr_heatmap raised an exception: {e}"
 
-def test_calibration_bins_non_series_input():
+def test_plot_corr_heatmap_non_numeric_data():
+    # Test when non-numeric data is present to verify handling.
+    df = pd.DataFrame({'col1': [1, 2, 3, 4, 5],
+                       'col2': ['a', 'b', 'c', 'd', 'e'],
+                       'col3': [5, 4, 3, 2, 1]})
     with pytest.raises(TypeError):
-        calibration_bins([0.1, 0.2], [0.15, 0.25], n_bins=2)
+       plot_corr_heatmap()
 
-def test_calibration_bins_n_bins_greater_than_data_length(sample_data):
-    y_true, y_pred = sample_data
-    result = calibration_bins(y_true, y_pred, n_bins=12)
-    assert isinstance(result, pd.DataFrame)
-    assert len(result) == 12
-    assert 'mean_predicted' in result.columns
-    assert 'mean_actual' in result.columns
+def test_plot_corr_heatmap_all_same_values():
+   #Test with all the same values in at least one column.
+   df = pd.DataFrame({'col1': [1,1,1,1,1],
+                      'col2': [2,4,6,8,10],
+                      'col3': [5,4,3,2,1]})
+   try:
+      plot_corr_heatmap()
+      assert plt.gcf().get_axes(), "No plot was generated."
+      plt.close()
+   except Exception as e:
+      assert False, f"plot_corr_heatmap raised an exception: {e}"
+
