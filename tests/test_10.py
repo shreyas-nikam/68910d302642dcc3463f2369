@@ -1,65 +1,35 @@
 import pytest
+from definition_5359329be6fb4b5898e5834da3bee043 import add_default_quarter
 import pandas as pd
-from definition_423b13ad690b427a8b9df997908facfd import pv_cashflows
 
-@pytest.fixture
-def mock_dataframe():
-    return pd.DataFrame({
-        'recovery_amount': [100, 200, 300],
-        'recovery_date': ['2024-01-15', '2024-02-15', '2024-03-15'],
-        'collection_cost': [10, 20, 30]
-    })
+def test_add_default_quarter_empty_dataframe():
+    """Test that the function returns an empty series if the input dataframe is empty."""
+    df = pd.DataFrame()
+    result = add_default_quarter()
+    assert isinstance(result, pd.Series)
+    assert result.empty
 
-def test_pv_cashflows_basic(mock_dataframe):
-    eff_rate = 0.05
-    default_date = pd.Timestamp('2024-01-01')
-    mock_dataframe['recovery_date'] = pd.to_datetime(mock_dataframe['recovery_date'])
+def test_add_default_quarter_no_default_date():
+    """Test when 'default_date' column does not exist."""
+    df = pd.DataFrame({'loan_id': [1, 2, 3]})
+    with pytest.raises(KeyError):
+        add_default_quarter()
 
-    pv_recoveries, pv_costs = pv_cashflows(mock_dataframe, eff_rate, default_date)
+def test_add_default_quarter_default_date_present():
+    """Test when 'default_date' column exists and contains valid dates."""
+    df = pd.DataFrame({'default_date': ['2023-01-15', '2023-04-20', '2023-07-01']})
+    expected_quarters = pd.Series(['2023Q1', '2023Q2', '2023Q3'])
+    pd.testing.assert_series_equal(add_default_quarter(), expected_quarters, check_names=False)
 
-    assert isinstance(pv_recoveries, float)
-    assert isinstance(pv_costs, float)
-    assert pv_recoveries > 0
-    assert pv_costs > 0
+def test_add_default_quarter_invalid_date_format():
+    """Test when 'default_date' column contains invalid date formats."""
+    df = pd.DataFrame({'default_date': ['2023-01-15', 'invalid_date', '2023-07-01']})
+    with pytest.raises(ValueError):
+        add_default_quarter()
 
-def test_pv_cashflows_zero_rate(mock_dataframe):
-    eff_rate = 0.0
-    default_date = pd.Timestamp('2024-01-01')
-    mock_dataframe['recovery_date'] = pd.to_datetime(mock_dataframe['recovery_date'])
-    pv_recoveries, pv_costs = pv_cashflows(mock_dataframe, eff_rate, default_date)
+def test_add_default_quarter_mixed_date_formats():
+    """Test when 'default_date' column contains mixed valid and invalid date formats."""
+    df = pd.DataFrame({'default_date': ['2023-01-15', None, '2023-07-01']})
 
-    assert isinstance(pv_recoveries, float)
-    assert isinstance(pv_costs, float)
-
-def test_pv_cashflows_empty_dataframe():
-    cf = pd.DataFrame({'recovery_amount': [], 'recovery_date': [], 'collection_cost': []})
-    eff_rate = 0.05
-    default_date = pd.Timestamp('2024-01-01')
-    pv_recoveries, pv_costs = pv_cashflows(cf, eff_rate, default_date)
-    assert pv_recoveries == 0.0
-    assert pv_costs == 0.0
-
-def test_pv_cashflows_different_date_format(mock_dataframe):
-    eff_rate = 0.05
-    default_date = pd.Timestamp('2023-12-01')
-    mock_dataframe['recovery_date'] = pd.to_datetime(mock_dataframe['recovery_date'])
-
-    pv_recoveries, pv_costs = pv_cashflows(mock_dataframe, eff_rate, default_date)
-
-    assert isinstance(pv_recoveries, float)
-    assert isinstance(pv_costs, float)
-    assert pv_recoveries > 0
-    assert pv_costs > 0
-
-def test_pv_cashflows_negative_values():
-    cf = pd.DataFrame({'recovery_amount': [-100, -200], 'recovery_date': ['2024-01-15', '2024-02-15'], 'collection_cost': [-10, -20]})
-    cf['recovery_date'] = pd.to_datetime(cf['recovery_date'])
-    eff_rate = 0.05
-    default_date = pd.Timestamp('2024-01-01')
-
-    pv_recoveries, pv_costs = pv_cashflows(cf, eff_rate, default_date)
-
-    assert isinstance(pv_recoveries, float)
-    assert isinstance(pv_costs, float)
-    assert pv_recoveries < 0
-    assert pv_costs < 0
+    expected_quarters = pd.Series(['2023Q1', None, '2023Q3'])
+    pd.testing.assert_series_equal(add_default_quarter(), expected_quarters, check_names=False)
