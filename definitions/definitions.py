@@ -1,155 +1,100 @@
-import pandas as pd
+import datetime
 
-def load_and_preprocess_data(file_path):
-    """Loads, cleans, and preprocesses data from a CSV file."""
-    try:
-        df = pd.read_csv(file_path)
-        df = df.dropna()
-        return df
-    except FileNotFoundError:
-        raise FileNotFoundError(f"File not found: {file_path}")
-    except pd.errors.EmptyDataError:
-        return pd.DataFrame()
+def calculate_realized_lgd(ead, recoveries, collection_costs, interest_rate, recovery_dates, cost_dates, default_date):
+    """Calculates the realized Loss Given Default (LGD) for a given loan."""
 
-def calculate_lgd(ead, recoveries):
-                """Calculates LGD, clipping values between 0 and 1."""
-                if ead == 0:
-                    return 0.0
-                lgd = 1.0 - (recoveries / ead)
-                return max(0.0, min(lgd, 1.0))
+    pv_recoveries = sum([r / (1 + interest_rate)**((d - default_date).days / 365.25) for r, d in zip(recoveries, recovery_dates)])
+    pv_costs = sum([c / (1 + interest_rate)**((d - default_date).days / 365.25) for c, d in zip(collection_costs, cost_dates)])
 
-import pandas as pd
+    if ead:
+        lgd = (ead - pv_recoveries - pv_costs) / ead
+    else:
+        lgd = 0.0
 
-def segment_portfolio(data, segmentation_criteria):
-    """Divides the loan portfolio into segments based on the specified segmentation criteria."""
-
-    segments = {}
-    if not segmentation_criteria:
-        segments['All'] = data
-        return segments
-
-    segment_name = '_'.join([f'{k}_{"_".join(map(str, v))}' for k, v in segmentation_criteria.items()])
-    
-    query = ' & '.join([f'({k}.isin({v}))' for k, v in segmentation_criteria.items()])
-
-    try:
-        filtered_data = data.query(query)
-    except TypeError:
-        raise TypeError
-
-    segments[segment_name] = filtered_data
-    return segments
+    return max(0.0, lgd)
 
 import pandas as pd
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
-from patsy import dmatrices
 
-def train_beta_regression_model(data, predictor_variables, segment_name):
+def train_beta_regression_model(data, features, target):
     """Trains a Beta regression model.
-
     Args:
-        data: DataFrame.
-        predictor_variables: List of predictor variable names.
-        segment_name: Segment name.
-
+        data: Pandas DataFrame.
+        features: List of feature names.
+        target: Target variable name.
     Returns:
-        A fitted Beta regression model object.
+        Trained Beta regression model.
+    Raises:
+        ValueError: If features are empty or target is out of range.
+        KeyError: If target column is missing.
+        TypeError: If data is not a DataFrame.
     """
-    try:
-        if not isinstance(data, pd.DataFrame):
-            raise AttributeError("Input data must be a pandas DataFrame.")
+    if not isinstance(data, pd.DataFrame):
+        raise TypeError("Data must be a Pandas DataFrame.")
 
-        # Handle missing data by dropping rows with NaN values
-        data = data.dropna()
+    if not features:
+        raise ValueError("Features cannot be empty.")
 
-        # Construct the formula for the model
-        if predictor_variables:
-            formula = 'LGD ~ ' + ' + '.join(predictor_variables)
-        else:
-            formula = 'LGD ~ 1'  # Model with only an intercept
+    if target not in data.columns:
+        raise KeyError("Target column missing from data.")
+    
+    if not all(0 < data[target] < 1):
+        raise ValueError("Target values must be between 0 and 1.")
 
-        # Fit the Beta regression model using GLM
-        model = smf.glm(formula=formula, data=data, family=sm.families.Beta(link=sm.genmod.families.links.logit())).fit()
-        return model
-    except Exception as e:
-        raise ValueError(f"Error during model training: {e}")
+    formula = f"{target} ~ " + " + ".join(features)
+    model = smf.beta(formula, data=data).fit()
+    return model
 
 import pandas as pd
+from sklearn.linear_model import LinearRegression
 
-def predict_lgd(model, data):
-    """Predicts LGD values using the trained model."""
-    try:
-        predictions = model.predict(data)
-        if isinstance(predictions, list):
-            predictions = pd.Series(predictions)
-        elif not isinstance(predictions, pd.Series):
-            predictions = pd.Series(predictions)
-        return predictions
-    except Exception as e:
-        raise e
+def train_pit_overlay_model(ttc_lgd, macroeconomic_data, macroeconomic_features):
+    """Trains a linear regression model for PIT overlay."""
+    if not isinstance(ttc_lgd, pd.Series) or not isinstance(macroeconomic_data, pd.DataFrame) or not isinstance(macroeconomic_features, list):
+        raise TypeError("Invalid input types.")
 
-import pandas as pd
+    if macroeconomic_data.empty and macroeconomic_features:
+        raise ValueError("Macroeconomic data is empty but features are provided.")
+    
+    for feature in macroeconomic_features:
+        if feature not in macroeconomic_data.columns:
+            raise ValueError(f"Macroeconomic feature '{feature}' not found in data.")
 
-def apply_regulatory_floor(lgd_predictions, floor):
-    """Applies a regulatory floor to LGD predictions."""
-    return lgd_predictions.clip(lower=floor)
+    if macroeconomic_features:
+        X = macroeconomic_data[macroeconomic_features]
+    else:
+        X = pd.DataFrame(index=ttc_lgd.index)  # Create an empty DataFrame with the correct index
 
-def calculate_pseudo_r_squared(model):
-                """    Calculates McFadden's Pseudo-R² for the fitted Beta regression model.
-Arguments:
-model: The fitted Beta regression model.
-Output:
-The calculated Pseudo-R² value.
-                """
+    y = ttc_lgd
 
-                return 1 - (model.llf / model.llnull)
+    if X.empty and y.empty:
+        return LinearRegression()
+    
+    model = LinearRegression()
+    model.fit(X, y)
+    return model
 
-import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.metrics import mean_absolute_error
 
-def generate_calibration_plot(predicted_lgd, actual_lgd, n_bins):
-    """Generates a calibration plot."""
-    if len(predicted_lgd) == 0 or len(actual_lgd) == 0:
-        raise ValueError("Input arrays cannot be empty.")
-    if len(predicted_lgd) != len(actual_lgd):
-        raise ValueError("Input arrays must have the same length.")
-    if n_bins <= 0:
-        raise ValueError("Number of bins must be greater than 0.")
+def calculate_model_evaluation_metrics(y_true, y_pred):
+    """Calculates model evaluation metrics such as pseudo-R-squared and MAE.
+    Args:
+        y_true: Array-like of actual LGD values.
+        y_pred: Array-like of predicted LGD values.
+    Output:
+        Dictionary of evaluation metrics.
+    """
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
 
-    indices = np.argsort(predicted_lgd)
-    predicted_lgd = predicted_lgd[indices]
-    actual_lgd = actual_lgd[indices]
+    # Calculate pseudo-R-squared
+    numerator = np.sum((y_true - y_pred) ** 2)
+    denominator = np.sum((y_true - np.mean(y_true)) ** 2)
+    pseudo_r_squared = 1 - (numerator / denominator) if denominator != 0 else 0
 
-    bins = np.linspace(0, len(predicted_lgd), n_bins + 1, dtype=int)
-    bin_means_predicted = []
-    bin_means_actual = []
+    # Calculate Mean Absolute Error (MAE)
+    mae = mean_absolute_error(y_true, y_pred)
 
-    for i in range(n_bins):
-        start = bins[i]
-        end = bins[i+1]
-        if start == end:
-            bin_means_predicted.append(np.nan)
-            bin_means_actual.append(np.nan)
-        else:
-            bin_means_predicted.append(np.mean(predicted_lgd[start:end]))
-            bin_means_actual.append(np.mean(actual_lgd[start:end]))
-
-    fig, ax = plt.subplots()
-    ax.plot(bin_means_predicted, bin_means_actual, marker='o', linestyle='-', label='Calibration Curve')
-    ax.plot([0, 1], [0, 1], linestyle='--', color='gray', label='Perfectly Calibrated')
-
-    ax.set_xlabel('Mean Predicted LGD')
-    ax.set_ylabel('Mean Actual LGD')
-    ax.set_title('Calibration Plot')
-    ax.legend()
-    ax.grid(True)
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
-
-    return fig
-
-def calculate_mean_absolute_error(predicted_lgd, actual_lgd):
-                """Calculates the Mean Absolute Error (MAE)."""
-                absolute_errors = [abs(p - a) for p, a in zip(predicted_lgd, actual_lgd)]
-                return sum(absolute_errors) / len(absolute_errors) if absolute_errors else 0.0
+    return {'pseudo_r_squared': float(pseudo_r_squared), 'mae': float(mae)}
