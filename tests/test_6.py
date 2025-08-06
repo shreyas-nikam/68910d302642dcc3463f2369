@@ -1,45 +1,86 @@
 import pytest
 import pandas as pd
-from definition_66a0c51cef3c4719b5ed56f2acad667d import read_parquet
+import numpy as np
+from definition_f3f823e4507f4c2380669f8ba094b6a4 import compute_realized_lgd
 
-def test_read_parquet_success(tmp_path):
-    # Create a dummy Parquet file
-    data = {'col1': [1, 2], 'col2': ['a', 'b']}
-    df = pd.DataFrame(data)
-    file_path = tmp_path / 'test.parquet'
-    df.to_parquet(file_path)
+def test_compute_realized_lgd_no_recoveries():
+    # Mock data: EAD = 100, no recoveries or costs
+    ead = pd.Series([100])
+    recoveries_pv = pd.Series([0])
+    collection_costs_pv = pd.Series([0])
 
-    # Read the Parquet file
-    loaded_df = read_parquet(file_path.as_posix())
+    # Expected LGD: (100 - 0 - 0) / 100 = 1
+    expected_lgd = pd.Series([1.0])
 
-    # Assert that the loaded DataFrame is equal to the original DataFrame
-    pd.testing.assert_frame_equal(loaded_df, df)
+    # Monkeypatching is not ideal here as we don't have an object but it's kept to adhere to no dataset reading
+    compute_realized_lgd.ead = ead
+    compute_realized_lgd.recoveries_pv = recoveries_pv
+    compute_realized_lgd.collection_costs_pv = collection_costs_pv
 
-def test_read_parquet_file_not_found():
-    # Test that FileNotFoundError is raised when the file does not exist
-    with pytest.raises(FileNotFoundError):
-        read_parquet('nonexistent_file.parquet')
+    lgd = compute_realized_lgd()
+    pd.testing.assert_series_equal(lgd, expected_lgd)
 
-def test_read_parquet_invalid_file(tmp_path):
-    # Create an empty file
-    file_path = tmp_path / 'empty.parquet'
-    file_path.write_text('')
+def test_compute_realized_lgd_full_recovery():
+    # Mock data: EAD = 100, full recovery, no costs
+    ead = pd.Series([100])
+    recoveries_pv = pd.Series([100])
+    collection_costs_pv = pd.Series([0])
 
-    # Test that an appropriate exception is raised for an invalid Parquet file
-    with pytest.raises(Exception):
-        read_parquet(file_path.as_posix())
+    # Expected LGD: (100 - 100 - 0) / 100 = 0
+    expected_lgd = pd.Series([0.0])
 
-def test_read_parquet_empty_file(tmp_path):
-    # Create an empty pandas DataFrame
-    df = pd.DataFrame()
-    file_path = tmp_path / "empty.parquet"
-    df.to_parquet(file_path)
+    compute_realized_lgd.ead = ead
+    compute_realized_lgd.recoveries_pv = recoveries_pv
+    compute_realized_lgd.collection_costs_pv = collection_costs_pv
 
-    # Verify that reading the parquet file works even if the file is empty.
-    loaded_df = read_parquet(file_path.as_posix())
-    pd.testing.assert_frame_equal(loaded_df, df)
+    lgd = compute_realized_lgd()
+    pd.testing.assert_series_equal(lgd, expected_lgd)
 
-def test_read_parquet_path_type_error():
-    # Test if TypeError is raised when the path argument is not a string
-    with pytest.raises(TypeError):
-        read_parquet(123)
+def test_compute_realized_lgd_partial_recovery_and_costs():
+    # Mock data: EAD = 100, partial recovery = 20, costs = 10
+    ead = pd.Series([100])
+    recoveries_pv = pd.Series([20])
+    collection_costs_pv = pd.Series([10])
+
+    # Expected LGD: (100 - 20 - 10) / 100 = 0.7
+    expected_lgd = pd.Series([0.7])
+
+    compute_realized_lgd.ead = ead
+    compute_realized_lgd.recoveries_pv = recoveries_pv
+    compute_realized_lgd.collection_costs_pv = collection_costs_pv
+
+    lgd = compute_realized_lgd()
+    pd.testing.assert_series_equal(lgd, expected_lgd)
+
+def test_compute_realized_lgd_multiple_loans():
+    # Mock data: Multiple loans with different EADs, recoveries, and costs
+    ead = pd.Series([100, 200, 300])
+    recoveries_pv = pd.Series([20, 50, 100])
+    collection_costs_pv = pd.Series([10, 20, 30])
+
+    # Expected LGDs:
+    # Loan 1: (100 - 20 - 10) / 100 = 0.7
+    # Loan 2: (200 - 50 - 20) / 200 = 0.65
+    # Loan 3: (300 - 100 - 30) / 300 = 0.5666666666666667
+    expected_lgd = pd.Series([0.7, 0.65, 0.5666666666666667])
+
+    compute_realized_lgd.ead = ead
+    compute_realized_lgd.recoveries_pv = recoveries_pv
+    compute_realized_lgd.collection_costs_pv = collection_costs_pv
+
+    lgd = compute_realized_lgd()
+    pd.testing.assert_series_equal(lgd, expected_lgd)
+
+def test_compute_realized_lgd_more_recoveries_than_ead():
+    #Mock data
+    ead = pd.Series([100])
+    recoveries_pv = pd.Series([150])
+    collection_costs_pv = pd.Series([0])
+    expected_lgd = pd.Series([-0.5])
+
+    compute_realized_lgd.ead = ead
+    compute_realized_lgd.recoveries_pv = recoveries_pv
+    compute_realized_lgd.collection_costs_pv = collection_costs_pv
+
+    lgd = compute_realized_lgd()
+    pd.testing.assert_series_equal(lgd, expected_lgd)
