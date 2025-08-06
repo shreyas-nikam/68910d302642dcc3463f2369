@@ -1,46 +1,50 @@
 import pytest
-from definition_49164f75b34a4a3095c6c869d5f9469c import read_lendingclub
 import pandas as pd
+from definition_3fc93de26eb34f77807189e89bfe5d26 import read_lendingclub
+
+def test_read_lendingclub_csv(tmp_path):
+    # Create a dummy CSV file
+    file_path = tmp_path / "test.csv"
+    file_path.write_text("loan_amnt,int_rate\n1000,0.10\n2000,0.12")
+
+    df = read_lendingclub(file_path)
+    assert isinstance(df, pd.DataFrame)
+    assert df.shape == (2, 2)
+    assert list(df.columns) == ["loan_amnt", "int_rate"]
+    assert df["loan_amnt"].tolist() == [1000, 2000]
+
+
+def test_read_lendingclub_parquet(tmp_path):
+    # Create a dummy DataFrame and save it as Parquet
+    data = {'loan_amnt': [1000, 2000], 'int_rate': [0.10, 0.12]}
+    df = pd.DataFrame(data)
+    file_path = tmp_path / "test.parquet"
+    df.to_parquet(file_path)
+
+    df_loaded = read_lendingclub(file_path)
+    assert isinstance(df_loaded, pd.DataFrame)
+    assert df_loaded.shape == (2, 2)
+    assert list(df_loaded.columns) == ["loan_amnt", "int_rate"]
+    assert df_loaded["loan_amnt"].tolist() == [1000, 2000]
 
 def test_read_lendingclub_empty_file(tmp_path):
-    # Create an empty CSV file
-    d = tmp_path / "sub"
-    d.mkdir()
-    p = d / "empty.csv"
-    p.write_text("")
+    # Create an empty file
+    file_path = tmp_path / "empty.csv"
+    file_path.write_text("")
 
-    # Call read_lendingclub and assert it returns an empty DataFrame
-    df = read_lendingclub()
+    df = read_lendingclub(file_path)
     assert isinstance(df, pd.DataFrame)
     assert df.empty
 
-def test_read_lendingclub_valid_csv(tmp_path):
-    # Create a sample CSV file
-    d = tmp_path / "sub"
-    d.mkdir()
-    p = d / "test.csv"
-    p.write_text("loan_amnt,int_rate\n1000,0.10\n2000,0.12")
+def test_read_lendingclub_invalid_file_path():
+    # Test with an invalid file path
+    with pytest.raises(FileNotFoundError):
+        read_lendingclub("nonexistent_file.csv")
 
-    # Call read_lendingclub and assert it returns a DataFrame with the correct data
-    df = read_lendingclub()
-    assert isinstance(df, pd.DataFrame)
-    assert not df.empty
-    assert df.shape == (2, 2)
-    assert df['loan_amnt'].iloc[0] == 1000
-    assert df['int_rate'].iloc[1] == 0.12
+def test_read_lendingclub_unsupported_file_type(tmp_path):
+    #Create a dummy txt file.
+    file_path = tmp_path / "test.txt"
+    file_path.write_text("loan_amnt,int_rate\n1000,0.10\n2000,0.12")
+    with pytest.raises(ValueError, match="Unsupported file format"):
+        read_lendingclub(file_path)
 
-def test_read_lendingclub_invalid_file_type(tmp_path):
-    # Create a text file instead of CSV or Parquet
-    d = tmp_path / "sub"
-    d.mkdir()
-    p = d / "test.txt"
-    p.write_text("Some text")
-
-    # Assuming the implementation raises a FileNotFoundError if the file isn't found, or some other error upon attempting to parse
-    with pytest.raises(FileNotFoundError):  #or appropriate Exception
-        read_lendingclub()
-
-def test_read_lendingclub_missing_file():
-    # Test when no lending club file is available
-    with pytest.raises(FileNotFoundError): # or appropriate Exception
-        read_lendingclub()
