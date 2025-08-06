@@ -1,49 +1,31 @@
 import pytest
-import pandas as pd
+from definition_3d3f18b956194a04b2ed46251f7d04d2 import plot_quarterly_lgd_vs_unrate
 import matplotlib.pyplot as plt
-import seaborn as sns
-from definition_259a87301abb497fbe06c93cc2572d88 import plot_corr_heatmap
+from unittest.mock import patch
 
-def test_plot_corr_heatmap_typical_case():
-    df = pd.DataFrame({'A': [1, 2, 3, 4, 5], 'B': [2, 3, 4, 5, 6], 'C': [3, 4, 5, 6, 7]})
-    cols = ['A', 'B', 'C']
+@patch('matplotlib.pyplot.show')
+def test_plot_quarterly_lgd_vs_unrate_success(mock_show):
     try:
-        plot_corr_heatmap(df, cols)
-        plt.close()
-        assert True  
+        plot_quarterly_lgd_vs_unrate()
     except Exception as e:
-        assert False, f"Unexpected exception: {e}"
+        assert False, f"plot_quarterly_lgd_vs_unrate raised an exception {e}"
+    assert mock_show.called
 
-def test_plot_corr_heatmap_empty_dataframe():
-    df = pd.DataFrame()
-    cols = []
-    try:
-        plot_corr_heatmap(df, cols)
-        plt.close()
-        assert True  
-    except Exception as e:
-        assert False, f"Unexpected exception: {e}"
+@patch('matplotlib.pyplot.plot')
+@patch('matplotlib.pyplot.twinx')
+def test_plot_quarterly_lgd_vs_unrate_plot_called(mock_twinx, mock_plot):
+    plot_quarterly_lgd_vs_unrate()
+    assert mock_plot.called
+    assert mock_twinx.called
 
-def test_plot_corr_heatmap_non_numeric_columns():
-    df = pd.DataFrame({'A': ['a', 'b', 'c'], 'B': ['d', 'e', 'f']})
-    cols = ['A', 'B']
-    with pytest.raises(TypeError):
-        plot_corr_heatmap(df, cols)
-        plt.close()
-
-def test_plot_corr_heatmap_single_column():
-    df = pd.DataFrame({'A': [1, 2, 3]})
-    cols = ['A']
-    try:
-        plot_corr_heatmap(df, cols)
-        plt.close()
-        assert True  
-    except Exception as e:
-        assert False, f"Unexpected exception: {e}"
-
-def test_plot_corr_heatmap_missing_columns():
-    df = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6]})
-    cols = ['A', 'C']
-    with pytest.raises(KeyError):
-        plot_corr_heatmap(df, cols)
-        plt.close()
+@patch('matplotlib.pyplot.xlabel')
+@patch('matplotlib.pyplot.ylabel')
+def test_plot_quarterly_lgd_vs_unrate_labels_exist(mock_ylabel, mock_xlabel):
+    plot_quarterly_lgd_vs_unrate()
+    assert mock_xlabel.called
+    assert mock_ylabel.called
+    
+@patch('matplotlib.pyplot.title')
+def test_plot_quarterly_lgd_vs_unrate_title_exists(mock_title):
+    plot_quarterly_lgd_vs_unrate()
+    assert mock_title.called
