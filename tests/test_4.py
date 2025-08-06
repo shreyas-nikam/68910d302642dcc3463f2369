@@ -1,77 +1,57 @@
 import pytest
+from definition_d6d2aeff4c894681aa6b73d1bb528f51 import compute_ead
 import pandas as pd
-from unittest.mock import patch
-from definition_652ea01a5a5441da8c05ddd0a1ef6094 import fetch_fred_series
 
-@pytest.fixture
-def mock_fred_data():
-    # Mock data for testing
-    data = {'UNRATE': [5.0, 5.1, 5.2], 'GDP': [1000, 1010, 1020]}
-    index = pd.to_datetime(['2023-01-01', '2023-04-01', '2023-07-01'])
-    return pd.DataFrame(data, index=index)
+def test_compute_ead_empty_dataframe():
+    """Tests EAD computation with an empty DataFrame."""
+    df = pd.DataFrame()
+    try:
+        ead_series = compute_ead()
+        assert ead_series.empty  # or whatever the expected behavior is with empty dataframe
+    except Exception as e:
+        assert False, f"An unexpected error occurred: {e}" # fail the test if any exception is raised.
 
-@patch('pandas_datareader.data.DataReader')
-def test_fetch_fred_series_success(mock_datareader, mock_fred_data):
-    mock_datareader.return_value = mock_fred_data
-    
-    series = {'UNRATE': 'UNRATE', 'GDP': 'GDP'}
-    start = '2023-01-01'
-    end = '2023-07-01'
-    api_key = 'test_api_key'
-    
-    result = fetch_fred_series(series, start, end, api_key)
-    
-    assert isinstance(result, pd.DataFrame)
-    assert all(col in result.columns for col in series.keys())
-    assert len(result) == len(mock_fred_data)
+def test_compute_ead_typical_case():
+    """Tests EAD computation with a standard DataFrame (placeholder)."""
+    # Create a mock DataFrame for the function to operate on, if needed.
+    # This assumes the function operates on a DataFrame implicitly available in the module.
+    # Replace this with how you actually access the input data within the module
+    # For example:
+    # your_module.df = pd.DataFrame({'funded_amnt': [10000, 20000], 'term': [36, 60]}) # Mock dataframe
 
-@patch('pandas_datareader.data.DataReader')
-def test_fetch_fred_series_empty_series(mock_datareader):
-    series = {}
-    start = '2023-01-01'
-    end = '2023-07-01'
-    api_key = 'test_api_key'
+    try:
+        ead_series = compute_ead()
+        # add assertions here to test that the ead computation is working correctly given a hypothetical
+        # mock dataframe.
 
-    result = fetch_fred_series(series, start, end, api_key)
+    except Exception as e:
+        assert False, f"An unexpected error occurred: {e}"  # fail the test if any exception is raised.
 
-    assert isinstance(result, pd.DataFrame)
-    assert result.empty
+def test_compute_ead_with_missing_data():
+    """Tests EAD computation when there are missing values in the input data (placeholder)."""
+    # Again, you will need to make a mock dataframe here.
+    # Here, you'll want to specify missing data, and then assert that the handling of such data is correct.
+    try:
+        ead_series = compute_ead()
+        # add assertions here to test that missing data is appropriately handled
 
-@patch('pandas_datareader.data.DataReader')
-def test_fetch_fred_series_invalid_date_range(mock_datareader):
-    series = {'UNRATE': 'UNRATE'}
-    start = '2023-07-01'
-    end = '2023-01-01'
-    api_key = 'test_api_key'
-    
-    # Mock the API call to avoid hitting the actual FRED API during testing
-    mock_datareader.side_effect = ValueError("Start date must be before end date")
-    with pytest.raises(ValueError, match="Start date must be before end date"):
-        fetch_fred_series(series, start, end, api_key)
+    except Exception as e:
+        assert False, f"An unexpected error occurred: {e}" # fail the test if any exception is raised.
 
-@patch('pandas_datareader.data.DataReader')
-def test_fetch_fred_series_missing_api_key(mock_datareader):
+def test_compute_ead_with_edge_cases():
+    """Tests EAD computation with edge case values (e.g., zero values) (placeholder)."""
+        # Again, you will need to make a mock dataframe here.
+    # Here, you'll want to specify edge cases, and then assert that the handling of such cases is correct.
+    try:
+        ead_series = compute_ead()
+        # add assertions here to test that edge cases are appropriately handled
+    except Exception as e:
+        assert False, f"An unexpected error occurred: {e}" # fail the test if any exception is raised.
 
-    series = {'UNRATE': 'UNRATE'}
-    start = '2023-01-01'
-    end = '2023-07-01'
-    api_key = None
-
-    # Simulate an exception from fred api when key is missing.
-    mock_datareader.side_effect = ValueError("API key is required")
-    with pytest.raises(ValueError, match="API key is required"):
-        fetch_fred_series(series, start, end, api_key)
-
-@patch('pandas_datareader.data.DataReader')
-def test_fetch_fred_series_wrong_series_id(mock_datareader, mock_fred_data):
-    mock_datareader.return_value = mock_fred_data
-    series = {'INVALID': 'INVALID_SERIES'}
-    start = '2023-01-01'
-    end = '2023-07-01'
-    api_key = 'test_api_key'
-    
-    # Mock the API call to avoid hitting the actual FRED API during testing
-    mock_datareader.side_effect = Exception("Invalid FRED series ID")
-
-    with pytest.raises(Exception, match="Invalid FRED series ID"):
-        fetch_fred_series(series, start, end, api_key)
+def test_compute_ead_returns_pandas_series():
+    """Tests that compute_ead returns a pandas Series."""
+    try:
+        ead_series = compute_ead()
+        assert isinstance(ead_series, pd.Series)
+    except Exception as e:
+        assert False, f"An unexpected error occurred: {e}"  # fail the test if any exception is raised.
