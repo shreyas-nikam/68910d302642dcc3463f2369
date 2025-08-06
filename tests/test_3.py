@@ -1,36 +1,71 @@
 import pytest
 import pandas as pd
-from definition_1b007379eda74f8e94598a13494ccfa4 import calculate_model_evaluation_metrics
+from definition_8a7a5462d1d94694a85b4a5082caf080 import read_lendingclub
 
-def test_calculate_model_evaluation_metrics_empty_input():
-    y_true = pd.Series([])
-    y_pred = pd.Series([])
-    result = calculate_model_evaluation_metrics(y_true, y_pred)
-    assert isinstance(result, dict)
-    assert len(result) > 0
+def test_read_lendingclub_basic():
+    # Create a dummy CSV file for testing
+    data = {'loan_amnt': [1000, 2000, 3000], 'int_rate': [0.10, 0.12, 0.15]}
+    df = pd.DataFrame(data)
+    df.to_csv("test.csv", index=False)
 
-def test_calculate_model_evaluation_metrics_perfect_predictions():
-    y_true = pd.Series([0.1, 0.5, 0.9])
-    y_pred = pd.Series([0.1, 0.5, 0.9])
-    result = calculate_model_evaluation_metrics(y_true, y_pred)
-    assert isinstance(result, dict)
-    assert len(result) > 0
-    # Add more specific assertions based on expected metrics in this case
+    # Define dtypes
+    dtypes = {'loan_amnt': int, 'int_rate': float}
 
-def test_calculate_model_evaluation_metrics_varying_predictions():
-    y_true = pd.Series([0.1, 0.5, 0.9])
-    y_pred = pd.Series([0.2, 0.4, 0.8])
-    result = calculate_model_evaluation_metrics(y_true, y_pred)
-    assert isinstance(result, dict)
-    assert len(result) > 0
-    # Add more specific assertions based on expected metrics in this case
+    # Read the data
+    result_df = read_lendingclub("test.csv", dtypes)
 
-def test_calculate_model_evaluation_metrics_invalid_input_type():
-    with pytest.raises(TypeError):
-        calculate_model_evaluation_metrics([0.1, 0.5], [0.2, 0.6])
+    # Assertions
+    assert isinstance(result_df, pd.DataFrame)
+    assert result_df.shape == (3, 2)
+    assert result_df['loan_amnt'].dtype == 'int64'
+    assert result_df['int_rate'].dtype == 'float64'
 
-def test_calculate_model_evaluation_metrics_different_lengths():
-    y_true = pd.Series([0.1, 0.5, 0.9])
-    y_pred = pd.Series([0.2, 0.4])
-    with pytest.raises(ValueError):
-        calculate_model_evaluation_metrics(y_true, y_pred)
+def test_read_lendingclub_empty_file():
+    # Create an empty CSV file
+    with open("empty.csv", "w") as f:
+        pass
+
+    # Read the empty file
+    result_df = read_lendingclub("empty.csv", None)
+
+    # Assertions
+    assert isinstance(result_df, pd.DataFrame)
+    assert result_df.empty
+
+def test_read_lendingclub_no_dtypes():
+   # Create a dummy CSV file for testing
+    data = {'loan_amnt': [1000, 2000, 3000], 'int_rate': [0.10, 0.12, 0.15]}
+    df = pd.DataFrame(data)
+    df.to_csv("test.csv", index=False)
+
+    # Read the data without dtypes
+    result_df = read_lendingclub("test.csv", None)
+
+    # Assertions
+    assert isinstance(result_df, pd.DataFrame)
+    assert result_df.shape == (3, 2)
+    assert result_df['loan_amnt'].dtype == 'int64'
+    assert result_df['int_rate'].dtype == 'float64'
+
+def test_read_lendingclub_missing_file():
+    with pytest.raises(FileNotFoundError):
+        read_lendingclub("nonexistent.csv", None)
+
+def test_read_lendingclub_mixed_dtypes():
+    # Create a dummy CSV file for testing with mixed data types
+    data = {'loan_amnt': [1000, 2000, 3000], 'int_rate': [0.10, 0.12, 0.15], 'term': ['36 months', '60 months', '36 months']}
+    df = pd.DataFrame(data)
+    df.to_csv("test.csv", index=False)
+
+    # Define dtypes
+    dtypes = {'loan_amnt': int, 'int_rate': float, 'term': str}
+
+    # Read the data
+    result_df = read_lendingclub("test.csv", dtypes)
+
+    # Assertions
+    assert isinstance(result_df, pd.DataFrame)
+    assert result_df.shape == (3, 3)
+    assert result_df['loan_amnt'].dtype == 'int64'
+    assert result_df['int_rate'].dtype == 'float64'
+    assert result_df['term'].dtype == 'object'
