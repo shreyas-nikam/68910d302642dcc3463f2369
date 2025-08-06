@@ -2,62 +2,56 @@ import pytest
 import pandas as pd
 import numpy as np
 from unittest.mock import MagicMock
-from definition_52b85590ee2044d783616cae27554bfc import fit_pit_overlay
-from statsmodels.regression.linear_model import RegressionResultsWrapper
+from definition_cc81eb9932394525914eef681ac601e2 import residuals_vs_fitted
 
-def test_fit_pit_overlay_typical(monkeypatch):
-    ttc_avg = pd.Series([0.1, 0.2, 0.3])
-    macro_df = pd.DataFrame({'macro1': [1, 2, 3], 'macro2': [4, 5, 6]})
+def test_residuals_vs_fitted_valid_input():
+    model_mock = MagicMock()
+    X = pd.DataFrame({'feature1': [1, 2, 3], 'feature2': [4, 5, 6]})
+    y = pd.Series([7, 8, 9])
+    
+    model_mock.predict.return_value = np.array([7.1, 8.1, 9.1]) # Mock the fitted values
+    residuals = y - model_mock.predict(X)
+    expected_df = pd.DataFrame({'residuals': residuals, 'fitted': model_mock.predict(X)})
 
-    mock_ols = MagicMock()
-    mock_ols.fit.return_value = RegressionResultsWrapper(None) # Mock the results object
+    result_df = residuals_vs_fitted(model_mock, X, y)
+    
+    pd.testing.assert_frame_equal(result_df, expected_df)
 
-    monkeypatch.setattr('statsmodels.api.OLS', mock_ols)
+def test_residuals_vs_fitted_empty_dataframe():
+    model_mock = MagicMock()
+    X = pd.DataFrame()
+    y = pd.Series([])
 
-    model = fit_pit_overlay(ttc_avg, macro_df)
+    result_df = residuals_vs_fitted(model_mock, X, y)
 
-    assert model is not None  # Check if the returned model is not None. Should be a fitted OLS model
-    mock_ols.assert_called_once()  # Assert if OLS was called once.
+    assert isinstance(result_df, pd.DataFrame)
+    assert result_df.empty
 
+def test_residuals_vs_fitted_model_predict_error():
+    model_mock = MagicMock()
+    X = pd.DataFrame({'feature1': [1, 2, 3]})
+    y = pd.Series([4, 5, 6])
+    model_mock.predict.side_effect = ValueError("Prediction failed")
 
+    with pytest.raises(ValueError, match="Prediction failed"):
+        residuals_vs_fitted(model_mock, X, y)
 
-def test_fit_pit_overlay_empty_ttc(monkeypatch):
-    ttc_avg = pd.Series([])
-    macro_df = pd.DataFrame({'macro1': [1, 2, 3], 'macro2': [4, 5, 6]})
+def test_residuals_vs_fitted_y_mismatch_x():
+    model_mock = MagicMock()
+    X = pd.DataFrame({'feature1': [1, 2, 3]})
+    y = pd.Series([4, 5])
 
-    mock_ols = MagicMock()
-    mock_ols.fit.return_value = RegressionResultsWrapper(None) # Mock the results object
+    with pytest.raises(ValueError, match="arrays must all be same length"):
+        residuals_vs_fitted(model_mock, X, y)
 
-    monkeypatch.setattr('statsmodels.api.OLS', mock_ols)
+def test_residuals_vs_fitted_different_fitted_values():
+    model_mock = MagicMock()
+    X = pd.DataFrame({'feature1': [1, 2, 3], 'feature2': [4, 5, 6]})
+    y = pd.Series([7, 8, 9])
 
-    model = fit_pit_overlay(ttc_avg, macro_df)
-    assert model is not None
+    model_mock.predict.return_value = np.array([10, 11, 12])  # Different fitted values
 
-    mock_ols.assert_called_once()
+    result_df = residuals_vs_fitted(model_mock, X, y)
 
-def test_fit_pit_overlay_empty_macro(monkeypatch):
-    ttc_avg = pd.Series([0.1, 0.2, 0.3])
-    macro_df = pd.DataFrame()
+    assert not result_df['fitted'].equals(y)
 
-    mock_ols = MagicMock()
-    mock_ols.fit.return_value = RegressionResultsWrapper(None) # Mock the results object
-
-    monkeypatch.setattr('statsmodels.api.OLS', mock_ols)
-
-    model = fit_pit_overlay(ttc_avg, macro_df)
-    assert model is not None
-    mock_ols.assert_called_once()
-
-def test_fit_pit_overlay_non_numeric_ttc(monkeypatch):
-    ttc_avg = pd.Series(['a', 'b', 'c'])
-    macro_df = pd.DataFrame({'macro1': [1, 2, 3], 'macro2': [4, 5, 6]})
-
-    with pytest.raises(TypeError):
-        fit_pit_overlay(ttc_avg, macro_df)
-
-def test_fit_pit_overlay_non_numeric_macro(monkeypatch):
-    ttc_avg = pd.Series([0.1, 0.2, 0.3])
-    macro_df = pd.DataFrame({'macro1': ['a', 'b', 'c'], 'macro2': [4, 5, 6]})
-
-    with pytest.raises(TypeError):
-        fit_pit_overlay(ttc_avg, macro_df)
