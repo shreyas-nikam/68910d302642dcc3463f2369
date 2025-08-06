@@ -1,48 +1,45 @@
 import pytest
-from definition_6a63db12606742d1b886c45270d6677e import calculate_pseudo_r_squared
-import statsmodels.api as sm
-import statsmodels.formula.api as smf
 import pandas as pd
-import numpy as np
+from definition_66a0c51cef3c4719b5ed56f2acad667d import read_parquet
 
-
-def mock_model(loglike, null_loglike):
-    class MockModel:
-        def __init__(self, loglike, null_loglike):
-            self.llnull = null_loglike
-            self.llf = loglike
-
-    return MockModel(loglike, null_loglike)
-
-
-
-def test_pseudo_r_squared_positive():
-    model = mock_model(-100, -200)
-    assert calculate_pseudo_r_squared(model) == 0.5
-
-def test_pseudo_r_squared_zero():
-    model = mock_model(-200, -200)
-    assert calculate_pseudo_r_squared(model) == 0.0
-
-def test_pseudo_r_squared_negative():
-     model = mock_model(-300, -200)
-     assert calculate_pseudo_r_squared(model) == pytest.approx(-0.5)
-
-def test_pseudo_r_squared_equal_likelihood():
-    model = mock_model(-150, -150)
-    assert calculate_pseudo_r_squared(model) == 0.0
-
-def test_pseudo_r_squared_with_real_data():
-    # Create sample data
-    data = {'y': np.random.beta(2, 5, 100), 'x1': np.random.rand(100), 'x2': np.random.rand(100)}
+def test_read_parquet_success(tmp_path):
+    # Create a dummy Parquet file
+    data = {'col1': [1, 2], 'col2': ['a', 'b']}
     df = pd.DataFrame(data)
+    file_path = tmp_path / 'test.parquet'
+    df.to_parquet(file_path)
 
-    # Fit a Beta regression model (this might require statsmodels to be installed)
-    try:
-        model = smf.betareg('y ~ x1 + x2', data=df).fit()
-        r_squared = calculate_pseudo_r_squared(model)
-        assert 0 <= r_squared <= 1 or np.isnan(r_squared)
+    # Read the Parquet file
+    loaded_df = read_parquet(file_path.as_posix())
 
-    except Exception as e:
-        pytest.skip(f"Statsmodels or patsy installation issue, skipping test. {e}")
+    # Assert that the loaded DataFrame is equal to the original DataFrame
+    pd.testing.assert_frame_equal(loaded_df, df)
 
+def test_read_parquet_file_not_found():
+    # Test that FileNotFoundError is raised when the file does not exist
+    with pytest.raises(FileNotFoundError):
+        read_parquet('nonexistent_file.parquet')
+
+def test_read_parquet_invalid_file(tmp_path):
+    # Create an empty file
+    file_path = tmp_path / 'empty.parquet'
+    file_path.write_text('')
+
+    # Test that an appropriate exception is raised for an invalid Parquet file
+    with pytest.raises(Exception):
+        read_parquet(file_path.as_posix())
+
+def test_read_parquet_empty_file(tmp_path):
+    # Create an empty pandas DataFrame
+    df = pd.DataFrame()
+    file_path = tmp_path / "empty.parquet"
+    df.to_parquet(file_path)
+
+    # Verify that reading the parquet file works even if the file is empty.
+    loaded_df = read_parquet(file_path.as_posix())
+    pd.testing.assert_frame_equal(loaded_df, df)
+
+def test_read_parquet_path_type_error():
+    # Test if TypeError is raised when the path argument is not a string
+    with pytest.raises(TypeError):
+        read_parquet(123)
