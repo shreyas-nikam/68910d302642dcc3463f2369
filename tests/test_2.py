@@ -1,34 +1,38 @@
 import pytest
+from definition_bf10054010fb4e82aa442de6748deae1 import filter_defaults
 import pandas as pd
-from definition_6d9704dc980d4031ad4acd4b19a81550 import validate_required_columns
+import numpy as np
 
-def test_validate_required_columns_success():
-    df = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
-    cols = ['col1', 'col2']
-    validate_required_columns(df, cols)  # Should not raise an exception
+@pytest.fixture
+def sample_loan_data():
+    data = {'loan_status': ['Fully Paid', 'Charged Off', 'Current', 'Charged Off', 'Fully Paid'],
+            'loan_amnt': [10000, 15000, 20000, 12000, 8000]}
+    return pd.DataFrame(data)
 
-def test_validate_required_columns_missing_column():
-    df = pd.DataFrame({'col1': [1, 2]})
-    cols = ['col1', 'col2']
-    with pytest.raises(ValueError) as excinfo:
-        validate_required_columns(df, cols)
-    assert "Missing required columns: ['col2']" in str(excinfo.value)
-
-def test_validate_required_columns_empty_dataframe():
+def test_filter_defaults_empty_dataframe():
     df = pd.DataFrame()
-    cols = ['col1']
-    with pytest.raises(ValueError) as excinfo:
-        validate_required_columns(df, cols)
-    assert "Missing required columns: ['col1']" in str(excinfo.value)
+    result = filter_defaults(df)
+    assert isinstance(result, pd.DataFrame)
+    assert result.empty
 
-def test_validate_required_columns_empty_cols_list():
-     df = pd.DataFrame({'col1': [1, 2]})
-     cols: list[str] = []
-     validate_required_columns(df, cols) #Should not raise an exception
+def test_filter_defaults_no_defaults(sample_loan_data):
+    df = sample_loan_data[sample_loan_data['loan_status'] != 'Charged Off'].copy()
+    result = filter_defaults(df)
+    assert isinstance(result, pd.DataFrame)
+    assert result.empty
 
-def test_validate_required_columns_duplicate_columns():
-    df = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
-    cols = ['col1', 'col1', 'col2']
-    with pytest.raises(ValueError) as excinfo:
-        validate_required_columns(df, cols)
-    assert "Duplicate columns provided in required columns list." in str(excinfo.value)
+def test_filter_defaults_some_defaults(sample_loan_data):
+    result = filter_defaults(sample_loan_data)
+    assert isinstance(result, pd.DataFrame)
+    assert not result.empty
+    assert all(result['loan_status'] == 'Charged Off')
+    assert len(result) == 2
+
+def test_filter_defaults_all_defaults(sample_loan_data):
+    df = sample_loan_data[sample_loan_data['loan_status'] == 'Charged Off'].copy()
+    expected_length = len(df)
+    result = filter_defaults(df)
+    assert isinstance(result, pd.DataFrame)
+    assert not result.empty
+    assert all(result['loan_status'] == 'Charged Off')
+    assert len(result) == expected_length
