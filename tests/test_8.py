@@ -1,43 +1,42 @@
 import pytest
 import pandas as pd
-from definition_8dcfd402036e4022b67f9494fd099ad1 import derive_cure_status
+from definition_308c0071d89a4009b052063ffd43573f import derive_cure_status
+
+@pytest.fixture
+def sample_dataframe():
+    data = {'loan_id': [1, 2, 3, 4, 5],
+            'recovery_date': ['2023-01-15', None, '2023-03-20', '2023-04-10', None]}
+    return pd.DataFrame(data)
+
+def test_derive_cure_status_no_recoveries(sample_dataframe):
+    df = sample_dataframe.copy()
+    df_result = derive_cure_status(df)
+    assert 'cure_status' in df_result.columns
+    assert df_result['cure_status'].tolist() == ['cured', 'not cured', 'cured', 'cured', 'not cured']
+
+def test_derive_cure_status_all_recoveries(sample_dataframe):
+    df = sample_dataframe.copy()
+    df['recovery_date'] = ['2023-01-15'] * len(df)
+    df_result = derive_cure_status(df)
+    assert 'cure_status' in df_result.columns
+    assert all(df_result['cure_status'] == 'cured')
 
 def test_derive_cure_status_empty_dataframe():
-    """Test with an empty dataframe."""
     df = pd.DataFrame()
-    result = derive_cure_status(df)
-    assert isinstance(result, pd.Series)
-    assert result.empty
+    df_result = derive_cure_status(df)
+    assert 'cure_status' in df_result.columns
+    assert len(df_result) == 0
 
-def test_derive_cure_status_no_relevant_columns():
-    """Test with a dataframe lacking the necessary columns."""
-    df = pd.DataFrame({'other_col': [1, 2, 3]})
-    with pytest.raises(KeyError):
-        derive_cure_status(df)  # Expect KeyError if 'collection_recovery_fee' or 'recoveries' columns are missing
+def test_derive_cure_status_existing_column(sample_dataframe):
+     df = sample_dataframe.copy()
+     df['cure_status'] = ['initial'] * len(df)
+     df_result = derive_cure_status(df)
+     assert 'cure_status' in df_result.columns
+     assert df_result['cure_status'].tolist() == ['cured', 'not cured', 'cured', 'cured', 'not cured']
 
-def test_derive_cure_status_all_zero_recoveries():
-    """Test with all recoveries and fees being zero."""
-    df = pd.DataFrame({'collection_recovery_fee': [0, 0, 0], 'recoveries': [0, 0, 0]})
-    result = derive_cure_status(df)
-    assert isinstance(result, pd.Series)
-    assert all(result == 'Not Cured')  # All should be 'Not Cured'
-
-def test_derive_cure_status_mixed_recoveries():
-    """Test with a mix of zero and non-zero recoveries."""
-    data = {'collection_recovery_fee': [10, 0, 5], 'recoveries': [5, 0, 10]}
-    df = pd.DataFrame(data)
-    result = derive_cure_status(df)
-    assert isinstance(result, pd.Series)
-    assert result.iloc[0] == 'Cured'
-    assert result.iloc[1] == 'Not Cured'
-    assert result.iloc[2] == 'Cured'
-
-def test_derive_cure_status_with_nan_values():
-    """Test with NaN values in recoveries columns."""
-    data = {'collection_recovery_fee': [10, float('nan'), 5], 'recoveries': [float('nan'), 0, 10]}
-    df = pd.DataFrame(data)
-    result = derive_cure_status(df)
-    assert isinstance(result, pd.Series)
-    assert result.iloc[0] == 'Cured'
-    assert result.iloc[1] == 'Not Cured' # NaN is treated as zero
-    assert result.iloc[2] == 'Cured'
+def test_derive_cure_status_mixed_date_formats(sample_dataframe):
+    df = sample_dataframe.copy()
+    df['recovery_date'] = ['1/15/2023', None, '03-20-2023', '20230410', None]
+    df_result = derive_cure_status(df)
+    assert 'cure_status' in df_result.columns
+    assert df_result['cure_status'].tolist() == ['cured', 'not cured', 'cured', 'cured', 'not cured']
