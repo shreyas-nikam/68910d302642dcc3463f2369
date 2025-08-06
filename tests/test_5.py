@@ -1,38 +1,40 @@
 import pytest
 import pandas as pd
-from definition_c19b2e08e0e245e983e7e17e6fdbe946 import apply_regulatory_floor
+from definition_0b0b0e49c6374f55abcf8b875ab0b19c import save_parquet
 
-@pytest.fixture
-def sample_series():
-    return pd.Series([0.01, 0.05, 0.1, 0.03, 0.07])
+def test_save_parquet_success(tmp_path):
+    """Test saving a DataFrame to Parquet successfully."""
+    df = pd.DataFrame({'col1': [1, 2], 'col2': ['a', 'b']})
+    file_path = tmp_path / "test.parquet"
+    save_parquet(df, str(file_path))
+    assert file_path.exists()
 
-def test_apply_regulatory_floor_below_floor(sample_series):
-    floor = 0.05
-    result = apply_regulatory_floor(sample_series, floor)
-    expected = pd.Series([0.05, 0.05, 0.1, 0.05, 0.07])
-    pd.testing.assert_series_equal(result, expected)
+def test_save_parquet_empty_dataframe(tmp_path):
+    """Test saving an empty DataFrame to Parquet."""
+    df = pd.DataFrame()
+    file_path = tmp_path / "empty.parquet"
+    save_parquet(df, str(file_path))
+    assert file_path.exists()
 
-def test_apply_regulatory_floor_above_floor(sample_series):
-    floor = 0.02
-    result = apply_regulatory_floor(sample_series, floor)
-    expected = pd.Series([0.02, 0.05, 0.1, 0.03, 0.07])
-    pd.testing.assert_series_equal(result, expected)
+def test_save_parquet_invalid_path(tmp_path):
+    """Test saving to an invalid path."""
+    df = pd.DataFrame({'col1': [1, 2], 'col2': ['a', 'b']})
+    file_path = 123  # Not a string
+    with pytest.raises(TypeError):  # Expecting some kind of type error due to file_path
+        save_parquet(df, file_path)
 
-def test_apply_regulatory_floor_empty_series():
-    floor = 0.05
-    empty_series = pd.Series([])
-    result = apply_regulatory_floor(empty_series, floor)
-    pd.testing.assert_series_equal(result, pd.Series([]))
+def test_save_parquet_large_dataframe(tmp_path):
+    """Test saving a large DataFrame to Parquet."""
+    data = {'col1': list(range(1000)), 'col2': ['a'] * 1000}
+    df = pd.DataFrame(data)
+    file_path = tmp_path / "large.parquet"
+    save_parquet(df, str(file_path))
+    assert file_path.exists()
 
-def test_apply_regulatory_floor_negative_values():
-    series = pd.Series([-0.01, 0.05, -0.1, 0.03, 0.07])
-    floor = 0.05
-    result = apply_regulatory_floor(series, floor)
-    expected = pd.Series([0.05, 0.05, 0.05, 0.05, 0.07])
-    pd.testing.assert_series_equal(result, expected)
+def test_save_parquet_non_dataframe_input(tmp_path):
+    """Test saving a non-DataFrame object."""
+    not_a_df = [1, 2, 3]
+    file_path = tmp_path / "wrong_input.parquet"
 
-def test_apply_regulatory_floor_zero_floor(sample_series):
-    floor = 0.0
-    result = apply_regulatory_floor(sample_series, floor)
-    expected = sample_series
-    pd.testing.assert_series_equal(result, expected)
+    with pytest.raises(AttributeError): #or TypeError depending on implementation
+        save_parquet(not_a_df, str(file_path))
