@@ -1,71 +1,69 @@
 import pytest
 import pandas as pd
-from definition_8a7a5462d1d94694a85b4a5082caf080 import read_lendingclub
+from definition_7bed20e7c66a48ec98705be9e2cd471e import assemble_recovery_cashflows
 
-def test_read_lendingclub_basic():
-    # Create a dummy CSV file for testing
-    data = {'loan_amnt': [1000, 2000, 3000], 'int_rate': [0.10, 0.12, 0.15]}
-    df = pd.DataFrame(data)
-    df.to_csv("test.csv", index=False)
+def test_assemble_recovery_cashflows_empty_dataframe(monkeypatch):
+    # Mock pandas DataFrame to return an empty DataFrame
+    def mock_read_csv(*args, **kwargs):
+        return pd.DataFrame()
 
-    # Define dtypes
-    dtypes = {'loan_amnt': int, 'int_rate': float}
+    monkeypatch.setattr(pd, "read_csv", mock_read_csv)
 
-    # Read the data
-    result_df = read_lendingclub("test.csv", dtypes)
+    # Call the function
+    result = assemble_recovery_cashflows()
 
-    # Assertions
-    assert isinstance(result_df, pd.DataFrame)
-    assert result_df.shape == (3, 2)
-    assert result_df['loan_amnt'].dtype == 'int64'
-    assert result_df['int_rate'].dtype == 'float64'
+    # Assert that the result is an empty DataFrame
+    assert isinstance(result, pd.DataFrame)
+    assert result.empty
 
-def test_read_lendingclub_empty_file():
-    # Create an empty CSV file
-    with open("empty.csv", "w") as f:
-        pass
 
-    # Read the empty file
-    result_df = read_lendingclub("empty.csv", None)
+def test_assemble_recovery_cashflows_valid_data(monkeypatch):
+    # Mock pandas DataFrame to return valid DataFrame (simulated)
+    data = {'recovery_amount_1': [100, 200], 'recovery_amount_2': [50, 75]}
+    def mock_read_csv(*args, **kwargs):
+        return pd.DataFrame(data)
 
-    # Assertions
-    assert isinstance(result_df, pd.DataFrame)
-    assert result_df.empty
+    monkeypatch.setattr(pd, "read_csv", mock_read_csv)
 
-def test_read_lendingclub_no_dtypes():
-   # Create a dummy CSV file for testing
-    data = {'loan_amnt': [1000, 2000, 3000], 'int_rate': [0.10, 0.12, 0.15]}
-    df = pd.DataFrame(data)
-    df.to_csv("test.csv", index=False)
+    # Call the function
+    result = assemble_recovery_cashflows()
 
-    # Read the data without dtypes
-    result_df = read_lendingclub("test.csv", None)
+    # Assert that the result is a pandas DataFrame
+    assert isinstance(result, pd.DataFrame)
 
-    # Assertions
-    assert isinstance(result_df, pd.DataFrame)
-    assert result_df.shape == (3, 2)
-    assert result_df['loan_amnt'].dtype == 'int64'
-    assert result_df['int_rate'].dtype == 'float64'
+def test_assemble_recovery_cashflows_missing_columns(monkeypatch):
+    # Mock pandas DataFrame with missing columns
+    data = {} # No recovery columns defined
+    def mock_read_csv(*args, **kwargs):
+        return pd.DataFrame(data)
+    monkeypatch.setattr(pd, "read_csv", mock_read_csv)
+    result = assemble_recovery_cashflows()
 
-def test_read_lendingclub_missing_file():
-    with pytest.raises(FileNotFoundError):
-        read_lendingclub("nonexistent.csv", None)
+    assert isinstance(result, pd.DataFrame)
 
-def test_read_lendingclub_mixed_dtypes():
-    # Create a dummy CSV file for testing with mixed data types
-    data = {'loan_amnt': [1000, 2000, 3000], 'int_rate': [0.10, 0.12, 0.15], 'term': ['36 months', '60 months', '36 months']}
-    df = pd.DataFrame(data)
-    df.to_csv("test.csv", index=False)
+def test_assemble_recovery_cashflows_incorrect_data_types(monkeypatch):
+    # Mock pandas DataFrame with incorrect data types (e.g. strings instead of floats)
+    data = {'recovery_amount_1': ['a', 'b'], 'recovery_amount_2': ['c', 'd']}
+    def mock_read_csv(*args, **kwargs):
+        return pd.DataFrame(data)
 
-    # Define dtypes
-    dtypes = {'loan_amnt': int, 'int_rate': float, 'term': str}
+    monkeypatch.setattr(pd, "read_csv", mock_read_csv)
 
-    # Read the data
-    result_df = read_lendingclub("test.csv", dtypes)
+    # Call the function and expect it to return a pandas DataFrame
+    result = assemble_recovery_cashflows()
 
-    # Assertions
-    assert isinstance(result_df, pd.DataFrame)
-    assert result_df.shape == (3, 3)
-    assert result_df['loan_amnt'].dtype == 'int64'
-    assert result_df['int_rate'].dtype == 'float64'
-    assert result_df['term'].dtype == 'object'
+    assert isinstance(result, pd.DataFrame)
+
+def test_assemble_recovery_cashflows_nan_values(monkeypatch):
+    # Mock pandas DataFrame with NaN values
+    data = {'recovery_amount_1': [float('nan'), 200], 'recovery_amount_2': [50, float('nan')]}
+    def mock_read_csv(*args, **kwargs):
+        return pd.DataFrame(data)
+
+    monkeypatch.setattr(pd, "read_csv", mock_read_csv)
+
+    # Call the function
+    result = assemble_recovery_cashflows()
+
+    # Assert that the result is a pandas DataFrame
+    assert isinstance(result, pd.DataFrame)
