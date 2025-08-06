@@ -1,129 +1,163 @@
 
-# Through-the-Cycle (TTC) LGD Modeler: Jupyter Notebook Specification
+## Jupyter Notebook Specification: LGD Model Development Lab
 
-## 1. Notebook Overview
+### 1. Notebook Overview
 
 **Learning Goals:**
 
-*   Understand the principles and implementation of Through-the-Cycle (TTC) Loss Given Default (LGD) modeling.
-*   Learn how to segment loan portfolios for LGD modeling based on key characteristics.
-*   Gain practical experience in building and evaluating TTC LGD models using regression techniques, specifically Beta regression.
-*   Understand the importance of regulatory floors in LGD modeling and how to implement them.
+*   Understand the components of Loss Given Default (LGD) models, including Through-The-Cycle (TTC) and Point-In-Time (PIT) approaches.
+*   Develop skills in data extraction, cleaning, and feature engineering for credit risk modeling.
+*   Apply statistical modeling techniques to estimate LGD.
+*   Learn how to incorporate macroeconomic factors into LGD models.
+*   Evaluate model performance and prepare artifacts for deployment.
 
 **Expected Outcomes:**
 
-*   A Jupyter Notebook that demonstrates the construction and evaluation of a TTC LGD model.
-*   The ability to segment a loan portfolio based on defined criteria.
-*   A working Beta regression model for predicting LGD within each segment.
-*   Implementation of a regulatory LGD floor.
-*   Model diagnostic outputs, including pseudo-R² and calibration plots.
+Upon completion of this lab, the user will be able to:
 
-## 2. Mathematical and Theoretical Foundations
+*   Calculate Realized LGD from loan-level data.
+*   Perform exploratory data analysis to identify key LGD drivers.
+*   Build TTC LGD models using appropriate regression techniques.
+*   Create PIT overlays to adjust TTC LGDs based on macroeconomic conditions.
+*   Assess model fit using relevant metrics and visualizations.
+*   Prepare production-ready model artifacts.
 
-### 2.1 Loss Given Default (LGD)
+### 2. Mathematical and Theoretical Foundations
 
-LGD represents the proportion of exposure lost on a loan when a borrower defaults. It is calculated as:
+**2.1 Realized LGD Calculation:**
 
-$$LGD = \frac{Loss\ Amount}{Exposure\ at\ Default (EAD)}$$
+The realized LGD is calculated for each defaulted loan as:
+
+$$LGD_{realized} = \frac{EAD - PV(Recoveries) - PV(Collection\, Costs)}{EAD}$$
 
 Where:
 
-*   $Loss\ Amount = EAD - Recoveries$
-*   $EAD$ is the outstanding balance at the time of default.
-*   $Recoveries$ are the amounts recovered from the defaulted loan.
+*   $LGD_{realized}$ is the realized Loss Given Default (a value between 0 and 1).
+*   $EAD$ is the Exposure at Default, representing the outstanding principal at the time of default.
+*   $PV(Recoveries)$ is the present value of all recoveries associated with the defaulted loan, discounted to the default date using the loan's effective interest rate.
+*   $PV(Collection\, Costs)$ is the present value of all collection costs associated with the defaulted loan, discounted to the default date using the loan's effective interest rate.
 
-### 2.2 Beta Regression
+The present value of a recovery payment at time $t$ is given by:
 
-Beta regression is used to model variables that are bounded between 0 and 1, such as LGD.  The Beta distribution is defined by two parameters, $\alpha$ and $\beta$, which influence the shape of the distribution. The mean ($\mu$) and precision ($\phi$) are related to these parameters by:
+$$PV(Recovery_t) = \frac{Recovery_t}{(1 + r)^t}$$
+
+where:
+
+*   $Recovery_t$ is the recovery amount at time $t$ after default.
+*   $r$ is the loan's effective interest rate.
+*   $t$ is the time (in years) from the default date to the recovery payment date.
+
+**Explanation:** Realized LGD represents the actual loss experienced by the lender when a borrower defaults. It considers the outstanding exposure at the time of default, any recoveries obtained, and the costs associated with the recovery process. Discounting future cashflows to present value is a standard practice in finance.
+
+**Real-world application:** Accurately calculating realized LGD is crucial for financial institutions to estimate potential losses from their loan portfolios, set appropriate capital reserves, and comply with regulatory requirements.
+
+**2.2 Through-The-Cycle (TTC) LGD Model:**
+
+TTC LGD models estimate the long-run average LGD for a given segment, irrespective of current economic conditions. This is often modeled using Beta regression.
+
+The Beta distribution is parameterized by two shape parameters, $\alpha$ and $\beta$, where the mean $\mu$ is given by:
 
 $$\mu = \frac{\alpha}{\alpha + \beta}$$
 
-$$\phi = \alpha + \beta$$
+The Beta regression model links the mean $\mu$ to a set of predictors using a link function $g(.)$, such as the logit link:
 
-The Beta regression model links the mean $\mu$ to a set of predictors using a link function $g(.)$. A common choice is the logit link function:
-
-$$g(\mu) = log(\frac{\mu}{1 - \mu}) = X\beta$$
+$$g(\mu) = X\beta$$
 
 Where:
 
+*   $\mu$ is the mean LGD to be predicted.
 *   $X$ is the matrix of predictor variables.
-*   $\beta$ is the vector of regression coefficients.
+*   $\beta$ are the coefficients to be estimated.
+*   $g(.)$ is a link function (logit, probit, etc.) that maps $\mu$ (which is between 0 and 1) to the real number line.
 
-The probability density function (pdf) of the Beta distribution is given by:
+Solving for $\mu$ given the logit link function:
 
-$$f(y; \alpha, \beta) = \frac{y^{\alpha-1}(1-y)^{\beta-1}}{B(\alpha, \beta)}$$
+$$\mu = \frac{e^{X\beta}}{1 + e^{X\beta}}$$
 
-Where $B(\alpha, \beta)$ is the Beta function.
+**Explanation:** Beta regression is suitable for modeling variables that are bounded between 0 and 1, such as LGD. The link function ensures that the predicted LGD values remain within the valid range. The predictors in the model can include loan characteristics, borrower attributes, and other relevant factors.
 
-### 2.3 Pseudo-R²
+**Real-world application:** TTC LGD models provide a stable estimate of long-run average losses, which can be used for stress testing and regulatory capital calculations.
 
-Pseudo-R² measures the goodness-of-fit for models where the outcome variable is not normally distributed, such as in logistic or Beta regression. Several versions exist; a common one is McFadden's Pseudo-R², calculated as:
+**2.3 Point-In-Time (PIT) LGD Overlay:**
 
-$$Pseudo-R^2 = 1 - \frac{log\ likelihood\ of\ the\ fitted\ model}{log\ likelihood\ of\ the\ null\ model}$$
+PIT LGD models adjust the TTC LGD estimates to reflect current macroeconomic conditions. This is often achieved using linear regression.
 
-A higher Pseudo-R² indicates a better fit.
+$$LGD_{PIT} = LGD_{TTC} + \beta_1 \cdot Macroeconomic\, Factor_1 + \beta_2 \cdot Macroeconomic\, Factor_2 + ... + \epsilon$$
 
-### 2.4 Regulatory Floor
+Where:
 
-Regulatory guidelines often require a minimum LGD value to be applied to all exposures. This floor is implemented to ensure that models do not underestimate potential losses. In this case, a 5% floor will be applied, meaning any predicted LGD value below 5% will be set to 5%.
+*   $LGD_{PIT}$ is the Point-In-Time LGD estimate.
+*   $LGD_{TTC}$ is the Through-The-Cycle LGD estimate.
+*   $Macroeconomic\, Factor_i$ is the value of the i-th macroeconomic indicator (e.g., unemployment rate, GDP growth).
+*   $\beta_i$ is the coefficient for the i-th macroeconomic factor, estimated from historical data.
+*   $\epsilon$ is the error term.
 
-### 2.5 Calibration
+**Explanation:** PIT overlays capture the impact of macroeconomic conditions on LGD. By including macroeconomic factors in the model, the LGD estimates can be adjusted to reflect current or forecasted economic conditions.
 
-Calibration assesses how well the model's predictions align with the actual outcomes.  A well-calibrated model's predictions should, on average, match the observed default rates. Calibration plots are used to visualize this, comparing the mean predicted LGD to the mean observed LGD within different risk segments.
+**Real-world application:** PIT LGD models are used to assess the impact of economic downturns or upturns on potential losses, which can inform risk management decisions and capital planning.
 
-## 3. Code Requirements
+### 3. Code Requirements
 
-### 3.1 Expected Libraries
+**3.1 Libraries:**
 
-*   **pandas:** For data manipulation and analysis.
-*   **numpy:** For numerical computations.
-*   **statsmodels:** For statistical modeling, including Beta regression.
-*   **matplotlib/seaborn:** For data visualization.
-*   **sklearn:** For model evaluation metrics and data splitting.
+*   **pandas:** Data manipulation and analysis. Used for reading, cleaning, and transforming the loan-level data and macro data.
+*   **numpy:** Numerical computing. Used for performing mathematical calculations, such as discounting recoveries and calculating LGD.
+*   **matplotlib/seaborn:** Data visualization. Used for creating histograms, scatter plots, and other visualizations to explore the data and assess model performance.
+*   **scikit-learn:** Machine learning algorithms. Used for building and evaluating the Beta regression model and linear regression models.
+*   **statsmodels:** Statistical modeling. May be used for more advanced statistical analysis and model diagnostics.
+*   **FRED API (e.g., `pandas_datareader`):** Accessing macroeconomic data from the Federal Reserve Economic Data (FRED) API.
+*   **pickle/joblib:** Saving and loading model artifacts.
+*   **kaggle:** download datasets
 
-### 3.2 Input/Output Expectations
+**3.2 Input/Output Expectations:**
 
-*   **Input:**
-    *   *LendingClub Loan Statistics* (Kaggle). Download with `kaggle datasets download -d sgpjesus/lending-club-2007-2018`. 
-    *     Or download it from https://www.openintro.org/data/csv/loans_full_schema.csv using wget.
-*   **Output:**
-    *   A Pandas DataFrame with predicted LGD values for each loan.
-    *   Model fit statistics (e.g., pseudo-R²).
-    *   Calibration plot.
-    *   Visualizations of LGD distributions and segmentations.
-    *   Saved model artefacts (preprocessor, regression model).
+*   **Input:** LendingClub loan data (CSV or Parquet format) download it from kaggle from kaggle, macroeconomic data from FRED API. Do not have a load_dataset function.
+*   **Output:** Realized LGD values for each loan, TTC LGD model, PIT LGD overlay, model evaluation metrics, visualizations, and saved model artifacts.
 
-### 3.3 Algorithms/Functions to be Implemented
+**3.3 Algorithms/Functions:**
 
-1.  **Data Loading and Preprocessing:** Function to load the data and perform basic cleaning, including handling missing values and data type conversions.
-2.  **LGD Calculation:** Function to calculate realized LGD based on the formula provided in section 2.1. This function should incorporate EAD, recoveries, and handle edge cases like LGD values outside the 0-1 range (clip to 0 and 1).
-3.  **Segmentation:** Function to divide the loan portfolio into segments based on user-defined criteria (e.g., `grade_group` and `cure_status`).
-4.  **Beta Regression Model Training:** Function to train a Beta regression model on each segment using the `statsmodels` library.  The function should take the segment data and predictor variables as input.
-5.  **LGD Prediction:** Function to predict LGD values for a given dataset using the trained Beta regression model.
-6.  **Regulatory Floor Implementation:** Function to apply a 5% floor to the predicted LGD values.
-7.  **Model Evaluation:** Functions to calculate pseudo-R² and generate calibration plots.  A function to calculate Mean Absolute Error (MAE)
-8.  **Visualization Functions:** Functions to create histograms, box plots, scatter plots, and calibration plots to visualize LGD distributions, segmentations, and model performance.
+*   **Realized LGD Calculation Function:** A function to calculate the realized LGD for each loan based on the EAD, recoveries, and collection costs.
+*   **Beta Regression Model Training Function:** A function to train a Beta regression model on the loan data, using loan characteristics as predictors.
+*   **PIT Overlay Model Training Function:** A function to train a linear regression model to adjust the TTC LGD based on macroeconomic factors.
+*   **Model Evaluation Functions:** Functions to calculate model evaluation metrics, such as pseudo-R-squared, MAE, and calibration plots.
 
-### 3.4 Visualizations
+**3.4 Visualizations:**
 
-*   **Histogram & Kernel Density:** of `LGD_realised` (overall & by `grade_group`).
-*   **Box/Violin Plots:** of LGD vs term, cure status.
-*   **Heatmap:** of Pearson/rank correlations among numeric drivers.
-*   **Bar chart:** Mean LGD by grade.
-*   **Violin Plot:** for cured vs non-cured LGDs.
-*   **Predicted-vs-Actual Scatter Plot:** with 45° line.
-*   **Calibration Curve:** Binned mean predicted vs. actual.
-*   **Residuals vs Fitted Plot:** For Beta model.
+*   **Histograms and Kernel Density Plots:** Visualize the distribution of `LGD_realized` overall and by `grade_group`.
+*   **Box/Violin Plots:** Compare LGD across different loan terms and cure statuses.
+*   **Heatmap:** Show the correlations among numeric LGD drivers (e.g., loan size, interest rate, time to default).
+*   **Bar Chart:** Illustrate mean LGD by loan grade to justify segmentation decisions.
+*   **Violin Plot:** Show the distribution of cured vs. non-cured LGDs.
+*   **Scatter Plot:** Compare predicted vs. actual LGD values, with a 45-degree line for reference.
+*   **Calibration Curve:** Plot binned mean predicted vs. actual LGD to assess model calibration.
+*   **Residuals vs. Fitted Plot:** Examine the residuals of the Beta regression model.
+*   **Dual-Axis Line Chart:** Display quarterly average LGD and unemployment rate over time.
+*   **Scenario Slider:** Allow the user to visualize the stressed LGD uplift under different macroeconomic scenarios.
 
-## 4. Additional Notes or Instructions
+### 4. Additional Notes or Instructions
 
-*   **Data Source:** The notebook will use a synthetic LendingClub loan dataset, emulating the structure of the Kaggle dataset.
-*   **Segmentation:** Users should be able to easily modify the segmentation criteria to explore different segmentations.
-*   **Model Evaluation:** Focus on interpreting the model fit statistics and calibration plot to assess the model's performance and identify potential issues.
-*   **Reproducibility:** The notebook should set a random seed (`RANDOM_STATE = 42`) for reproducibility.
-*   **Model Artifacts:** Ensure saving the model as per the document in `/models/lgd_preprocess_v1.pkl`, `lgd_beta_regression_v1.pkl`.
-*   **Regulatory Compliance:**  Emphasize the importance of the 5% LGD floor and its role in complying with regulatory requirements.
-*   **Assumptions:** Assumes a pre-existing dataset with the specified features and format.  Assumes basic familiarity with Python, Pandas, and statistical modeling.
-*   **Constraints:**  The model should be limited to the available features in the dataset.
-*   **Customization:**  Users should be able to easily change the predictor variables used in the Beta regression model and the segmentation criteria.
+*   **Reproducibility:** Set a fixed random seed (e.g., `RANDOM_STATE = 42`) to ensure reproducible results. Store the exact training indices for future reference.
+*   **Data Segmentation:** Segment the data based on loan grade (`grade_group`: Prime A–B vs Sub-prime C–G) and cure status (cured vs not cured).
+*   **LGD Floor:** Apply a 5% LGD floor as required by regulations.
+*   **Model Evaluation:** Evaluate the model on an out-of-time (OOT) sample to assess its performance over time.
+*   **Artifacts:** Commit all model artifacts (datasets, models, preprocessors, etc.) to version control with appropriate tags (e.g., `lgd_model_dev_v1`).
+*   **Notebook Flow:** Follow the suggested notebook flow:
+    *   `00_data_ingestion.ipynb`
+    *   `01_feature_engineering.ipynb`
+    *   `02_eda_segmentation.ipynb`
+    *   `03_ttc_model_build.ipynb`
+    *   `04_pit_overlay.ipynb`
+    *   `05_model_export.ipynb`
+*   **Assumptions:** The analysis assumes the availability of historical loan data with sufficient defaults and recovery information. The effectiveness of the PIT overlay depends on the correlation between macroeconomic factors and LGD.
+*   **Constraints:** The model should adhere to regulatory guidelines and internal risk management policies.
+*    **Artefact saving:**
+    Save the following:
+    | Dataset / File                                                                                                               | Purpose                                                                                                               | Exact Fields |
+    | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------ |
+    | **Saved models & preprocessors** (`/models/lgd_preprocess_v1.pkl`, `lgd_beta_regression_v1.pkl`, `lgd_macro_overlay_v1.pkl`) | Reproduce predictions exactly as deployed in Part 1.                                                                  |              |
+    | **Out-of-time (OOT) sample** `oot_2019_defaults.parquet` (30 % hold-out or latest year)                                      | Performance degradation & recalibration need. Must match Part 1 schema (`loan_amnt`, `int_rate`, … , `LGD_realised`). |              |
+    | **Quarterly portfolio snapshots** `snap_YYYYQ.csv`                                                                           | Compute Population-Stability-Index (PSI), grade migration, realised default vs predicted LGD by cohort.               |              |
+    | **Override log** `overrides.csv`                                                                                             | Assess governance overrides: *obligor\_id, override\_date, model\_grade, final\_grade, reason\_code, approver*.       |              |
+    | **Macro forecast scenarios** (FRED API JSON)                                                                                 | Forward-looking PIT validation under baseline, adverse, severely-adverse.                                             |              |
+    | **Benchmark LGD study** `industry_LGD_benchmark.xlsx`                                                                        | External plausibility check.                                                                                          |              |
 
