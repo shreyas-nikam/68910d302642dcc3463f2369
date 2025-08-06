@@ -84,7 +84,8 @@ Calibration assesses how well the model's predictions align with the actual outc
 ### 3.2 Input/Output Expectations
 
 *   **Input:**
-    *   A Pandas DataFrame containing loan data, including features such as `loan_amnt`, `int_rate`, `term`, `grade_group`, `cure_status`, and `recoveries`.
+    *   *LendingClub Loan Statistics* (Kaggle). Download with `kaggle datasets download -d sgpjesus/lending-club-2007-2018`. 
+    *     Or download it from https://www.openintro.org/data/csv/loans_full_schema.csv using wget.
 *   **Output:**
     *   A Pandas DataFrame with predicted LGD values for each loan.
     *   Model fit statistics (e.g., pseudo-R²).
