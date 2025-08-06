@@ -1,49 +1,91 @@
 import pytest
 import pandas as pd
-from definition_63d1a1bee3074eaf8e854bbef7828c21 import derive_cure_status
+import numpy as np
+from unittest.mock import MagicMock
+from definition_94d2680070b54e31a27c2da1afc4a236 import predict_beta
 
-@pytest.fixture
-def sample_dataframe():
-    # Create a sample DataFrame for testing
-    data = {'loan_id': [1, 2, 3, 4, 5],
-            'loan_status': ['Current', 'Fully Paid', 'Charged Off', 'Default', 'Fully Paid'],
-            'recovery_amount': [0, 0, 1000, 0, 500],
-            'collection_recovery_fee': [0, 0, 100, 0, 50]}
-    return pd.DataFrame(data)
 
-def test_derive_cure_status_no_defaults(sample_dataframe):
-    # Test case 1: No charged off or default loans
-    df = sample_dataframe[sample_dataframe['loan_status'].isin(['Current', 'Fully Paid'])]
-    result = derive_cure_status(df)
-    expected = pd.Series([False] * len(df), index=df.index)
-    pd.testing.assert_series_equal(result, expected, check_names=False)
+def test_predict_beta_typical(mocker):
+    # Mock the model's predict method to return a known series of values
+    mock_model = MagicMock()
+    mock_model.predict.return_value = pd.Series([0.1, 0.2, 0.3])
 
-def test_derive_cure_status_with_recoveries(sample_dataframe):
-    # Test case 2:  Charged off loans with recoveries
-    df = sample_dataframe[sample_dataframe['loan_status'].isin(['Charged Off', 'Default', 'Fully Paid'])]
-    result = derive_cure_status(df)
+    # Create a sample input dataframe
+    X = pd.DataFrame({'feature1': [1, 2, 3], 'feature2': [4, 5, 6]})
 
-    expected_values = [False, False, False] # Assuming recovery doesn't mean cure
-    expected = pd.Series(expected_values, index=df.index)
-    pd.testing.assert_series_equal(result, pd.Series(expected_values, index=df.index), check_names=False)
+    # Call the function with the mocked model and sample data
+    result = predict_beta(mock_model, X)
 
-def test_derive_cure_status_empty_dataframe():
-    # Test case 3: Empty DataFrame
-    df = pd.DataFrame()
-    result = derive_cure_status(df)
+    # Assert that the function returns a Pandas Series
     assert isinstance(result, pd.Series)
-    assert len(result) == 0
 
-def test_derive_cure_status_mixed_statuses(sample_dataframe):
-    # Test case 4: Mixed loan statuses (Current, Fully Paid, Charged Off, Default)
-    result = derive_cure_status(sample_dataframe)
-    expected_values = [False, False, False, False, False]
-    expected = pd.Series(expected_values, index=sample_dataframe.index)
-    pd.testing.assert_series_equal(result, pd.Series(expected_values, index=sample_dataframe.index), check_names=False)
+    # Assert that the predicted values are correct (as defined by the mock)
+    assert np.allclose(result.values, [0.1, 0.2, 0.3])
 
-def test_derive_cure_status_null_values():
-    # Test case 5: DataFrame with NaN values in 'loan_status'
-    data = {'loan_id': [1, 2, 3], 'loan_status': ['Fully Paid', None, 'Charged Off']}
-    df = pd.DataFrame(data)
-    with pytest.raises(TypeError):
-        derive_cure_status(df)
+
+def test_predict_beta_empty_dataframe(mocker):
+    # Mock the model's predict method to return an empty series
+    mock_model = MagicMock()
+    mock_model.predict.return_value = pd.Series([])
+
+    # Create an empty dataframe
+    X = pd.DataFrame()
+
+    # Call the function with the mocked model and empty data
+    result = predict_beta(mock_model, X)
+
+    # Assert that the function returns a Pandas Series
+    assert isinstance(result, pd.Series)
+
+    # Assert that the result is an empty series
+    assert result.empty
+
+
+def test_predict_beta_model_error(mocker):
+    # Mock the model's predict method to raise an exception
+    mock_model = MagicMock()
+    mock_model.predict.side_effect = ValueError("Model failed to predict")
+
+    # Create a sample input dataframe
+    X = pd.DataFrame({'feature1': [1, 2, 3], 'feature2': [4, 5, 6]})
+
+    # Call the function and expect the exception to propagate
+    with pytest.raises(ValueError, match="Model failed to predict"):
+        predict_beta(mock_model, X)
+
+
+def test_predict_beta_all_zeros(mocker):
+    # Mock the model's predict method to return all zeros
+    mock_model = MagicMock()
+    mock_model.predict.return_value = pd.Series([0, 0, 0])
+
+    # Create a sample input dataframe
+    X = pd.DataFrame({'feature1': [1, 2, 3], 'feature2': [4, 5, 6]})
+
+    # Call the function with the mocked model and sample data
+    result = predict_beta(mock_model, X)
+
+    # Assert that the function returns a Pandas Series
+    assert isinstance(result, pd.Series)
+
+    # Assert that the predicted values are all zeros
+    assert np.allclose(result.values, [0, 0, 0])
+
+
+
+def test_predict_beta_nan_values(mocker):
+    # Mock the model's predict method to return NaN values
+    mock_model = MagicMock()
+    mock_model.predict.return_value = pd.Series([np.nan, np.nan, np.nan])
+
+    # Create a sample input dataframe
+    X = pd.DataFrame({'feature1': [1, 2, 3], 'feature2': [4, 5, 6]})
+
+    # Call the function with the mocked model and sample data
+    result = predict_beta(mock_model, X)
+
+    # Assert that the function returns a Pandas Series
+    assert isinstance(result, pd.Series)
+
+    # Assert that the predicted values are NaN
+    assert np.isnan(result.values).all()
