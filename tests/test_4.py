@@ -1,56 +1,77 @@
 import pytest
 import pandas as pd
-from unittest.mock import MagicMock
-from definition_5216013068844d1f88725fd46abd2666 import predict_lgd
+from unittest.mock import patch
+from definition_652ea01a5a5441da8c05ddd0a1ef6094 import fetch_fred_series
 
+@pytest.fixture
+def mock_fred_data():
+    # Mock data for testing
+    data = {'UNRATE': [5.0, 5.1, 5.2], 'GDP': [1000, 1010, 1020]}
+    index = pd.to_datetime(['2023-01-01', '2023-04-01', '2023-07-01'])
+    return pd.DataFrame(data, index=index)
 
-def test_predict_lgd_empty_data():
-    model_mock = MagicMock()
-    empty_data = pd.DataFrame()
-    result = predict_lgd(model_mock, empty_data)
-    assert isinstance(result, pd.Series)
+@patch('pandas_datareader.data.DataReader')
+def test_fetch_fred_series_success(mock_datareader, mock_fred_data):
+    mock_datareader.return_value = mock_fred_data
+    
+    series = {'UNRATE': 'UNRATE', 'GDP': 'GDP'}
+    start = '2023-01-01'
+    end = '2023-07-01'
+    api_key = 'test_api_key'
+    
+    result = fetch_fred_series(series, start, end, api_key)
+    
+    assert isinstance(result, pd.DataFrame)
+    assert all(col in result.columns for col in series.keys())
+    assert len(result) == len(mock_fred_data)
+
+@patch('pandas_datareader.data.DataReader')
+def test_fetch_fred_series_empty_series(mock_datareader):
+    series = {}
+    start = '2023-01-01'
+    end = '2023-07-01'
+    api_key = 'test_api_key'
+
+    result = fetch_fred_series(series, start, end, api_key)
+
+    assert isinstance(result, pd.DataFrame)
     assert result.empty
 
+@patch('pandas_datareader.data.DataReader')
+def test_fetch_fred_series_invalid_date_range(mock_datareader):
+    series = {'UNRATE': 'UNRATE'}
+    start = '2023-07-01'
+    end = '2023-01-01'
+    api_key = 'test_api_key'
+    
+    # Mock the API call to avoid hitting the actual FRED API during testing
+    mock_datareader.side_effect = ValueError("Start date must be before end date")
+    with pytest.raises(ValueError, match="Start date must be before end date"):
+        fetch_fred_series(series, start, end, api_key)
 
-def test_predict_lgd_model_predict_returns_series():
-    model_mock = MagicMock()
-    model_mock.predict.return_value = pd.Series([0.2, 0.5, 0.8])
-    data = pd.DataFrame({'feature1': [1, 2, 3]})
-    result = predict_lgd(model_mock, data)
-    assert isinstance(result, pd.Series)
-    assert len(result) == 3
-    assert result.iloc[0] == 0.2
-    assert result.iloc[1] == 0.5
-    assert result.iloc[2] == 0.8
+@patch('pandas_datareader.data.DataReader')
+def test_fetch_fred_series_missing_api_key(mock_datareader):
 
+    series = {'UNRATE': 'UNRATE'}
+    start = '2023-01-01'
+    end = '2023-07-01'
+    api_key = None
 
-def test_predict_lgd_model_predict_raises_exception():
-    model_mock = MagicMock()
-    model_mock.predict.side_effect = ValueError("Prediction failed")
-    data = pd.DataFrame({'feature1': [1, 2, 3]})
-    with pytest.raises(ValueError, match="Prediction failed"):
-        predict_lgd(model_mock, data)
+    # Simulate an exception from fred api when key is missing.
+    mock_datareader.side_effect = ValueError("API key is required")
+    with pytest.raises(ValueError, match="API key is required"):
+        fetch_fred_series(series, start, end, api_key)
 
+@patch('pandas_datareader.data.DataReader')
+def test_fetch_fred_series_wrong_series_id(mock_datareader, mock_fred_data):
+    mock_datareader.return_value = mock_fred_data
+    series = {'INVALID': 'INVALID_SERIES'}
+    start = '2023-01-01'
+    end = '2023-07-01'
+    api_key = 'test_api_key'
+    
+    # Mock the API call to avoid hitting the actual FRED API during testing
+    mock_datareader.side_effect = Exception("Invalid FRED series ID")
 
-def test_predict_lgd_model_predict_returns_list():
-    model_mock = MagicMock()
-    model_mock.predict.return_value = [0.2, 0.5, 0.8]
-    data = pd.DataFrame({'feature1': [1, 2, 3]})
-    result = predict_lgd(model_mock, data)
-    assert isinstance(result, pd.Series)
-    assert len(result) == 3
-    assert result.iloc[0] == 0.2
-    assert result.iloc[1] == 0.5
-    assert result.iloc[2] == 0.8
-
-
-def test_predict_lgd_with_sample_data():
-    model_mock = MagicMock()
-    model_mock.predict.return_value = pd.Series([0.1, 0.6, 0.9])
-    data = pd.DataFrame({'feature1': [4, 5, 6]})
-    expected_output = pd.Series([0.1, 0.6, 0.9])
-
-    predicted_lgd = predict_lgd(model_mock, data)
-
-    pd.testing.assert_series_equal(predicted_lgd, expected_output)
-
+    with pytest.raises(Exception, match="Invalid FRED series ID"):
+        fetch_fred_series(series, start, end, api_key)
