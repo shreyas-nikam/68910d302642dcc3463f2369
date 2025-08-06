@@ -1,42 +1,47 @@
 import pytest
-import pandas as pd
-import matplotlib.pyplot as plt
-from unittest.mock import patch
-from definition_892d411816af44d391599e9cdcaf18d5 import plot_mean_lgd_by_grade
+from definition_cf7549a7f08c4f4fa6643bda3a55fcc2 import save_model
+import pickle
+import joblib
+import os
 
-@pytest.fixture
-def sample_dataframe():
-    data = {'grade': ['A', 'A', 'B', 'B', 'C', 'C'],
-            'LGD_realized': [0.1, 0.2, 0.15, 0.25, 0.3, 0.4]}
-    return pd.DataFrame(data)
+class MockModel:
+    def __init__(self, value):
+        self.value = value
 
-@patch('matplotlib.pyplot.show')
-def test_plot_mean_lgd_by_grade_plot_creation(mock_show, sample_dataframe):
-    plot_mean_lgd_by_grade(sample_dataframe)
-    mock_show.assert_called_once()
+    def predict(self, x):
+        return [self.value] * len(x)
 
-@patch('matplotlib.pyplot.bar')
-def test_plot_mean_lgd_by_grade_correct_data(mock_bar, sample_dataframe):
-    plot_mean_lgd_by_grade(sample_dataframe)
-    grouped = sample_dataframe.groupby('grade')['LGD_realized'].mean()
-    grades = grouped.index.tolist()
-    mean_lgds = grouped.values.tolist()
-    mock_bar.assert_called()
+def test_save_model_pickle(tmp_path):
+    model = MockModel(0.5)
+    filename = tmp_path / "test_model.pkl"
+    save_model(model, filename)
+    assert os.path.exists(filename)
+    with open(filename, 'rb') as f:
+        loaded_model = pickle.load(f)
+    assert isinstance(loaded_model, MockModel)
+    assert loaded_model.value == 0.5
 
-@patch('matplotlib.pyplot.title')
-def test_plot_mean_lgd_by_grade_title(mock_title, sample_dataframe):
-    plot_mean_lgd_by_grade(sample_dataframe)
-    mock_title.assert_called_with('Mean LGD by Loan Grade')
+def test_save_model_joblib(tmp_path):
+    model = MockModel(0.5)
+    filename = tmp_path / "test_model.joblib"
+    save_model(model, filename)
+    assert os.path.exists(filename)
+    loaded_model = joblib.load(filename)
+    assert isinstance(loaded_model, MockModel)
+    assert loaded_model.value == 0.5
 
-def test_plot_mean_lgd_by_grade_empty_dataframe():
-    df = pd.DataFrame({'grade': [], 'LGD_realized': []})
-    try:
-        plot_mean_lgd_by_grade(df)
-    except Exception as e:
-        assert False, f"plot_mean_lgd_by_grade raised an exception {e}"
+def test_save_model_invalid_filename(tmp_path):
+    model = MockModel(0.5)
+    filename = 123  # Invalid filename type
+    with pytest.raises(TypeError):
+        save_model(model, filename)
 
-def test_plot_mean_lgd_by_grade_missing_column():
-    df = pd.DataFrame({'grade': ['A', 'B']})
-    with pytest.raises(KeyError):
-        plot_mean_lgd_by_grade(df)
+def test_save_model_invalid_model(tmp_path):
+    filename = tmp_path / "test_model.pkl"
+    with pytest.raises(Exception):
+        save_model("not a model", filename)
 
+def test_save_model_none_model(tmp_path):
+    filename = tmp_path / "test_model.pkl"
+    with pytest.raises(Exception):  # Adjust exception type if needed based on save_model implementation
+        save_model(None, filename)
