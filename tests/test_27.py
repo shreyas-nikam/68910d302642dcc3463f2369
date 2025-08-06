@@ -1,40 +1,47 @@
 import pytest
-import pandas as pd
+from definition_a8fc083d326f41ecb1b5faf9347a1f89 import plot_pred_vs_actual
 import matplotlib.pyplot as plt
 from unittest.mock import patch
-from definition_e9a374fe88dd4c3392393982b0f5b9ae import plot_lgd_hist_kde
 
-@pytest.fixture
-def sample_dataframe():
-    return pd.DataFrame({
-        'LGD_realized': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
-        'grade_group': ['A', 'A', 'B', 'B', 'A', 'B', 'A', 'B', 'A', 'B']
-    })
+@patch("matplotlib.pyplot.show")
+def test_plot_pred_vs_actual_exists(mock_show):
+    plot_pred_vs_actual()
 
-@patch('matplotlib.pyplot.show')
-def test_plot_lgd_hist_kde_no_grouping(mock_show, sample_dataframe):
-    plot_lgd_hist_kde(sample_dataframe, by=None)
+@patch("matplotlib.pyplot.scatter")
+@patch("matplotlib.pyplot.plot")
+@patch("matplotlib.pyplot.title")
+@patch("matplotlib.pyplot.xlabel")
+@patch("matplotlib.pyplot.ylabel")
+@patch("matplotlib.pyplot.show")
+def test_plot_pred_vs_actual_calls(mock_show, mock_ylabel, mock_xlabel, mock_title, mock_plot, mock_scatter):
+    plot_pred_vs_actual()
+    assert mock_scatter.call_count == 1
+    assert mock_plot.call_count == 1
+    assert mock_title.call_count == 1
+    assert mock_xlabel.call_count == 1
+    assert mock_ylabel.call_count == 1
+
+@patch("matplotlib.pyplot.scatter")
+@patch("matplotlib.pyplot.plot")
+@patch("matplotlib.pyplot.title")
+@patch("matplotlib.pyplot.xlabel")
+@patch("matplotlib.pyplot.ylabel")
+@patch("matplotlib.pyplot.show")
+def test_plot_pred_vs_actual_labels(mock_show, mock_ylabel, mock_xlabel, mock_title, mock_plot, mock_scatter):
+    plot_pred_vs_actual()
+    mock_xlabel.assert_called_with("Predicted LGD")
+    mock_ylabel.assert_called_with("Actual LGD")
+    mock_title.assert_called_with("Predicted vs Actual LGD")
+
+@patch("matplotlib.pyplot.show")
+def test_plot_pred_vs_actual_no_error(mock_show):
+    try:
+        plot_pred_vs_actual()
+    except Exception as e:
+        assert False, f"plot_pred_vs_actual raised an exception {e}"
+
+@patch("matplotlib.pyplot.show")
+def test_plot_pred_vs_actual_call_show(mock_show):
+    plot_pred_vs_actual()
     mock_show.assert_called_once()
-
-@patch('matplotlib.pyplot.show')
-def test_plot_lgd_hist_kde_with_grouping(mock_show, sample_dataframe):
-    plot_lgd_hist_kde(sample_dataframe, by='grade_group')
-    mock_show.assert_called_once()
-
-@patch('matplotlib.pyplot.show')
-def test_plot_lgd_hist_kde_empty_dataframe(mock_show):
-    df = pd.DataFrame({'LGD_realized': []})
-    plot_lgd_hist_kde(df, by=None)
-    mock_show.assert_called_once()
-
-@patch('matplotlib.pyplot.show')
-def test_plot_lgd_hist_kde_nan_values(mock_show):
-    df = pd.DataFrame({'LGD_realized': [0.1, 0.2, float('nan'), 0.4]})
-    plot_lgd_hist_kde(df, by=None)
-    mock_show.assert_called_once()
-
-@patch('matplotlib.pyplot.show')
-def test_plot_lgd_hist_kde_invalid_by_column(mock_show, sample_dataframe):
-    with pytest.raises(KeyError):
-        plot_lgd_hist_kde(sample_dataframe, by='invalid_column')
 
