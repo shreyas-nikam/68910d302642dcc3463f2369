@@ -1,53 +1,92 @@
 import pytest
 import pandas as pd
-from definition_968e2135273540ab8316d888c865d5c7 import temporal_split
+from definition_6b3f4597671d46dcaae4bd8e48c4bb1e import aggregate_lgd_by_cohort
 
-@pytest.fixture
-def sample_dataframe():
-    data = {'date': pd.to_datetime(['2021-01-01', '2021-06-01', '2022-01-01', '2022-06-01', '2023-01-01']),
-            'value': [1, 2, 3, 4, 5]}
-    return pd.DataFrame(data)
+def test_aggregate_lgd_by_cohort_empty_dataframe(monkeypatch):
+    # Test case 1: Empty DataFrame
+    def mock_read_csv(*args, **kwargs):
+        return pd.DataFrame()
 
-def test_temporal_split_valid_ranges(sample_dataframe):
-    train_span = ('2021-01-01', '2021-12-31')
-    val_span = ('2022-01-01', '2022-12-31')
-    oot_span = ('2023-01-01', '2023-12-31')
-    train_df, val_df, oot_df = temporal_split(sample_dataframe, train_span, val_span, oot_span)
-    assert isinstance(train_df, pd.DataFrame)
-    assert isinstance(val_df, pd.DataFrame)
-    assert isinstance(oot_df, pd.DataFrame)
+    monkeypatch.setattr(pd, 'read_csv', mock_read_csv)
 
-def test_temporal_split_empty_dataframe():
-    df = pd.DataFrame()
-    train_span = ('2021-01-01', '2021-12-31')
-    val_span = ('2022-01-01', '2022-12-31')
-    oot_span = ('2023-01-01', '2023-12-31')
-    train_df, val_df, oot_df = temporal_split(df, train_span, val_span, oot_span)
-    assert isinstance(train_df, pd.DataFrame)
-    assert isinstance(val_df, pd.DataFrame)
-    assert isinstance(oot_df, pd.DataFrame)
+    result = aggregate_lgd_by_cohort()
+    assert isinstance(result, pd.DataFrame)
+    assert result.empty
 
-def test_temporal_split_no_overlap(sample_dataframe):
-    train_span = ('2020-01-01', '2020-12-31')
-    val_span = ('2021-01-01', '2021-12-31')
-    oot_span = ('2022-01-01', '2022-12-31')
-    train_df, val_df, oot_df = temporal_split(sample_dataframe, train_span, val_span, oot_span)
-    assert isinstance(train_df, pd.DataFrame)
-    assert isinstance(val_df, pd.DataFrame)
-    assert isinstance(oot_df, pd.DataFrame)
+def test_aggregate_lgd_by_cohort_no_default_quarter(monkeypatch):
+    # Test case 2: DataFrame without 'default_quarter' column
+    def mock_read_csv(*args, **kwargs):
+        return pd.DataFrame({'loan_id': [1, 2], 'lgd': [0.1, 0.2]})
 
-def test_temporal_split_partial_overlap(sample_dataframe):
-    train_span = ('2021-01-01', '2022-01-01')
-    val_span = ('2021-06-01', '2022-06-01')
-    oot_span = ('2023-01-01', '2023-12-31')
-    train_df, val_df, oot_df = temporal_split(sample_dataframe, train_span, val_span, oot_span)
-    assert isinstance(train_df, pd.DataFrame)
-    assert isinstance(val_df, pd.DataFrame)
-    assert isinstance(oot_df, pd.DataFrame)
+    monkeypatch.setattr(pd, 'read_csv', mock_read_csv)
 
-def test_temporal_split_invalid_date_format(sample_dataframe):
-    train_span = ('2021-01-01', '2021-12-31')
-    val_span = ('2022-01-01', '2022-12-31')
-    oot_span = ('invalid date', '2023-12-31')
-    with pytest.raises(Exception):
-        temporal_split(sample_dataframe, train_span, val_span, oot_span)
+    with pytest.raises(KeyError) as excinfo:
+        aggregate_lgd_by_cohort()
+    assert "default_quarter" in str(excinfo.value)
+
+def test_aggregate_lgd_by_cohort_basic_aggregation(monkeypatch):
+    # Test case 3: Basic aggregation functionality
+    def mock_read_csv(*args, **kwargs):
+        return pd.DataFrame({
+            'default_quarter': ['2023-Q1', '2023-Q1', '2023-Q2', '2023-Q2'],
+            'lgd': [0.1, 0.2, 0.3, 0.4]
+        })
+
+    monkeypatch.setattr(pd, 'read_csv', mock_read_csv)
+
+    result = aggregate_lgd_by_cohort()
+    assert isinstance(result, pd.DataFrame)
+    assert 'default_quarter' in result.columns
+    assert 'mean_lgd' in result.columns
+    assert len(result) == 2  # Two unique quarters
+
+    # Check values for 2023-Q1
+    q1_data = result[result['default_quarter'] == '2023-Q1']['mean_lgd'].values[0]
+    assert q1_data == 0.15
+
+    # Check values for 2023-Q2
+    q2_data = result[result['default_quarter'] == '2023-Q2']['mean_lgd'].values[0]
+    assert q2_data == 0.35
+
+def test_aggregate_lgd_by_cohort_missing_lgd_values(monkeypatch):
+    # Test case 4: Handling missing LGD values
+    def mock_read_csv(*args, **kwargs):
+        return pd.DataFrame({
+            'default_quarter': ['2023-Q1', '2023-Q1', '2023-Q2', '2023-Q2'],
+            'lgd': [0.1, None, 0.3, 0.4]
+        })
+
+    monkeypatch.setattr(pd, 'read_csv', mock_read_csv)
+
+    result = aggregate_lgd_by_cohort()
+    assert isinstance(result, pd.DataFrame)
+    assert 'default_quarter' in result.columns
+    assert 'mean_lgd' in result.columns
+    assert len(result) == 2
+
+    # Check values for 2023-Q1
+    q1_data = result[result['default_quarter'] == '2023-Q1']['mean_lgd'].values[0]
+    assert q1_data == 0.1
+
+    # Check values for 2023-Q2
+    q2_data = result[result['default_quarter'] == '2023-Q2']['mean_lgd'].values[0]
+    assert q2_data == 0.35
+
+def test_aggregate_lgd_by_cohort_different_quarters(monkeypatch):
+    # Test case 5: Handling different default quarters (more than 2)
+    def mock_read_csv(*args, **kwargs):
+        return pd.DataFrame({
+            'default_quarter': ['2022-Q4', '2023-Q1', '2023-Q2', '2023-Q3'],
+            'lgd': [0.1, 0.2, 0.3, 0.4]
+        })
+
+    monkeypatch.setattr(pd, 'read_csv', mock_read_csv)
+
+    result = aggregate_lgd_by_cohort()
+    assert len(result) == 4  # Four unique quarters
+
+    quarter_data = result.set_index('default_quarter')['mean_lgd'].to_dict()
+    assert quarter_data['2022-Q4'] == 0.1
+    assert quarter_data['2023-Q1'] == 0.2
+    assert quarter_data['2023-Q2'] == 0.3
+    assert quarter_data['2023-Q3'] == 0.4
