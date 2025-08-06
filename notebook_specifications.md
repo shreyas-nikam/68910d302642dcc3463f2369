@@ -161,3 +161,74 @@ Where:
     | **Macro forecast scenarios** (FRED API JSON)                                                                                 | Forward-looking PIT validation under baseline, adverse, severely-adverse.                                             |              |
     | **Benchmark LGD study** `industry_LGD_benchmark.xlsx`                                                                        | External plausibility check.                                                                                          |              |
 
+### Functions Required:
+
+### 0) Utilities & Reproducibility
+
+* `set_seed(seed: int = 42) -> None` — fix numpy/sklearn RNG for reproducibility.
+* `assert_bounds(x: pd.Series, lo: float = 0.0, hi: float = 1.0) -> None` — raise if any LGD outside \[0,1].
+* `validate_required_columns(df: pd.DataFrame, cols: list[str]) -> None` — schema guardrail before compute.
+
+### 1) Data I/O
+
+* `read_lendingclub(path: str, dtypes: dict | None = None) -> pd.DataFrame` — load LC loans.
+* `fetch_fred_series(series: dict[str, str], start: str, end: str, api_key: str) -> pd.DataFrame` — UNRATE, GDP, etc.
+* `save_parquet(df: pd.DataFrame, path: str) -> None` / `read_parquet(path: str) -> pd.DataFrame` — dataset artifacts.
+
+### 2) Default, EAD & Recovery Cashflows
+
+* `filter_defaults(df: pd.DataFrame, default_statuses: set[str]) -> pd.DataFrame` — keep defaulted loans only.
+* `assemble_recovery_cashflows(df: pd.DataFrame) -> pd.DataFrame` — per-loan rows with recovery **amounts & dates** and collection fees.
+* `compute_ead(row: pd.Series) -> float` — exposure at default (installment context).
+* `pv_cashflows(cf: pd.DataFrame, eff_rate: float, default_date: pd.Timestamp) -> tuple[float, float]` — PV(recoveries), PV(collection costs). 
+* `compute_realized_lgd(ead: float, pv_rec: float, pv_cost: float) -> float` — (EAD − PV(rec) − PV(cost)) / EAD.
+
+### 3) Segmentation & Feature Engineering
+
+* `assign_grade_group(grade: str) -> str` — “Prime” (A–B) vs “Subprime” (C–G).
+* `derive_cure_status(df: pd.DataFrame) -> pd.Series` — cured vs not cured (and restructured flag if available).
+* `build_features(df: pd.DataFrame) -> pd.DataFrame` — numeric drivers (loan amount, int rate, term, time-to-default, etc.).
+
+### 4) Splits & Cohorts
+
+* `add_default_quarter(df: pd.DataFrame, default_date_col: str) -> pd.Series` — quarterly cohort key for PIT mapping.
+* `temporal_split(df: pd.DataFrame, train_span: tuple, val_span: tuple, oot_span: tuple) -> tuple[pd.DataFrame,...]` — create OOT set and save it.
+
+### 5) TTC Model (LGD on \[0,1])
+
+* `fit_beta_regression(X: pd.DataFrame, y: pd.Series) -> Any` — Beta regression via `statsmodels` for bounded target.
+* `predict_beta(model: Any, X: pd.DataFrame) -> np.ndarray` — TTC LGD predictions (clip to \[0,1]).
+* `apply_lgd_floor(lgd: pd.Series, floor: float = 0.05) -> pd.Series` — enforce regulatory floor.
+
+*(If data are sparse, a fallback `fit_fractional_logit(...)` can mirror the TTC step.)*
+
+### 6) PIT Overlay (Macro Adjustment)
+
+* `aggregate_lgd_by_cohort(df: pd.DataFrame) -> pd.DataFrame` — average realized/TTC LGD by quarter.
+* `align_macro_with_cohorts(macro: pd.DataFrame, cohorts: pd.DataFrame, lag_q: int = 1) -> pd.DataFrame` — join UNRATE/GDP to quarters.
+* `fit_pit_overlay(ttc_avg: pd.Series, macro_df: pd.DataFrame) -> Any` — linear model: LGDₜ = a + b·macro.
+* `apply_pit_overlay(ttc_pred: pd.Series, macro_row: pd.Series, coefs: dict, mode: str = "additive") -> pd.Series` — add/multiply overlay per segment.
+
+### 7) Evaluation
+
+* `mae(y_true: np.ndarray, y_pred: np.ndarray) -> float` — headline accuracy metric.
+* `calibration_bins(y_true: pd.Series, y_pred: pd.Series, n_bins: int = 10) -> pd.DataFrame` — binned mean predicted vs. actual; plotting helper.
+* `residuals_vs_fitted(model: Any, X: pd.DataFrame, y: pd.Series) -> pd.DataFrame` — diagnostics for TTC fit.
+
+### 8) Visualizations (Notebook-Ready)
+
+* `plot_lgd_hist_kde(df: pd.DataFrame, by: str | None = None) -> None` — distribution overall/by group.
+* `plot_box_violin(df: pd.DataFrame, x: str, y: str = "LGD_realized") -> None` — term/cure comparisons.
+* `plot_corr_heatmap(df: pd.DataFrame, cols: list[str]) -> None` — driver correlations.
+* `plot_mean_lgd_by_grade(df: pd.DataFrame) -> None` — justify grade segmentation.
+* `plot_pred_vs_actual(y_true: pd.Series, y_pred: pd.Series) -> None` — 45° scatter.
+* `plot_calibration_curve(bins_df: pd.DataFrame) -> None` — calibration check.
+* `plot_quarterly_lgd_vs_unrate(lgd_q: pd.Series, unrate_q: pd.Series) -> None` — dual-axis trend.
+
+### 9) Artifacts & Exports
+
+* `save_model(obj: Any, path: str) -> None` / `load_model(path: str) -> Any` — pickle/joblib models & preprocessors.
+* `export_oot(df_oot: pd.DataFrame, path: str) -> None` — out-of-time holdout.
+* `save_quarterly_snapshots(df: pd.DataFrame, dirpath: str) -> None` — `snap_YYYYQ.csv` for PSI, migrations, etc.
+* `write_macro_scenarios_json(scenarios: dict, path: str) -> None` — baseline/adverse/severely-adverse inputs.
+
