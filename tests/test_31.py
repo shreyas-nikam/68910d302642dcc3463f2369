@@ -1,45 +1,37 @@
 import pytest
 import pandas as pd
-import matplotlib.pyplot as plt
-from definition_80a6fb0c16cd467c8af320f254cb3f1b import plot_pred_vs_actual
-import io
-from unittest.mock import patch
+from definition_ba0bdc53ebfa4905b339ba3da1599259 import export_oot
 
-def test_plot_pred_vs_actual_valid_input():
-    y_true = pd.Series([0.1, 0.2, 0.3, 0.4, 0.5])
-    y_pred = pd.Series([0.12, 0.18, 0.33, 0.38, 0.51])
-    try:
-        plot_pred_vs_actual(y_true, y_pred)
-        plt.close()
-    except Exception as e:
-        assert False, f"Plotting failed with valid input: {e}"
+def test_export_oot_valid_data(tmp_path):
+    # Test with valid DataFrame and filename
+    data = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
+    filename = tmp_path / "test.parquet"
+    export_oot(data, str(filename))
+    assert filename.exists()
 
-def test_plot_pred_vs_actual_empty_series():
-    y_true = pd.Series([])
-    y_pred = pd.Series([])
-    try:
-        plot_pred_vs_actual(y_true, y_pred)
-        plt.close()
-    except Exception as e:
-        assert False, f"Plotting failed with empty series: {e}"
+def test_export_oot_empty_data(tmp_path):
+    # Test with empty DataFrame
+    data = pd.DataFrame()
+    filename = tmp_path / "test_empty.parquet"
+    export_oot(data, str(filename))
+    assert filename.exists()
 
-def test_plot_pred_vs_actual_different_lengths():
-    y_true = pd.Series([0.1, 0.2, 0.3])
-    y_pred = pd.Series([0.12, 0.18, 0.33, 0.38])
-    with pytest.raises(ValueError):
-        plot_pred_vs_actual(y_true, y_pred)
+def test_export_oot_invalid_filename(tmp_path):
+     # Test with invalid filename
+    data = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
+    filename = tmp_path / "test.txt"
 
-def test_plot_pred_vs_actual_non_numeric_data():
-    y_true = pd.Series(['a', 'b', 'c'])
-    y_pred = pd.Series(['d', 'e', 'f'])
+    with pytest.raises(ValueError):  # Expect an error depending on implementation
+        export_oot(data, str(filename))
+
+def test_export_oot_filename_none(tmp_path):
+    data = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
     with pytest.raises(TypeError):
-        plot_pred_vs_actual(y_true, y_pred)
+        export_oot(data, None)
 
-def test_plot_pred_vs_actual_check_plot_created():
-    y_true = pd.Series([0.1, 0.2, 0.3, 0.4, 0.5])
-    y_pred = pd.Series([0.12, 0.18, 0.33, 0.38, 0.51])
-
-    with patch("matplotlib.pyplot.show") as mock_show:
-        plot_pred_vs_actual(y_true, y_pred)
-        assert mock_show.called
-        plt.close()
+def test_export_oot_parquet_format(tmp_path):
+    data = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
+    filename = tmp_path / "test.parquet"
+    export_oot(data, str(filename))
+    df = pd.read_parquet(filename)
+    pd.testing.assert_frame_equal(df, data)
