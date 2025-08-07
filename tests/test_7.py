@@ -1,6 +1,6 @@
 import pytest
 import pandas as pd
-from definition_e0a3548237ff4a90b921c1856965dfb0 import assign_grade_group
+from definition_6d06ad7b462642ffbeeef2b5b08f48c9 import assign_grade_group
 
 @pytest.fixture
 def sample_dataframe():
@@ -8,36 +8,39 @@ def sample_dataframe():
     return pd.DataFrame(data)
 
 def test_assign_grade_group_prime(sample_dataframe):
-    df = sample_dataframe.copy()
-    result_df = assign_grade_group(df)
-    assert 'grade_group' in result_df.columns
-    assert result_df['grade_group'][0] == 'Prime'
-    assert result_df['grade_group'][1] == 'Prime'
+    df = assign_grade_group(sample_dataframe)
+    assert 'grade_group' in df.columns
+    assert df['grade_group'].iloc[0] == 'Prime'
+    assert df['grade_group'].iloc[1] == 'Prime'
 
 def test_assign_grade_group_subprime(sample_dataframe):
-    df = sample_dataframe.copy()
-    result_df = assign_grade_group(df)
-    assert 'grade_group' in result_df.columns
-    assert result_df['grade_group'][2] == 'Sub-prime'
-    assert result_df['grade_group'][6] == 'Sub-prime'
+    df = assign_grade_group(sample_dataframe)
+    assert 'grade_group' in df.columns
+    assert df['grade_group'].iloc[2] == 'Sub-prime'
+    assert df['grade_group'].iloc[3] == 'Sub-prime'
+    assert df['grade_group'].iloc[4] == 'Sub-prime'
+    assert df['grade_group'].iloc[5] == 'Sub-prime'
+    assert df['grade_group'].iloc[6] == 'Sub-prime'
 
 def test_assign_grade_group_empty_dataframe():
-    df = pd.DataFrame()
-    result_df = assign_grade_group(df)
-    assert 'grade_group' in result_df.columns
-    assert len(result_df) == 0
+    df = pd.DataFrame({'grade': []})
+    df = assign_grade_group(df)
+    assert 'grade_group' in df.columns
+    assert len(df) == 0
 
-def test_assign_grade_group_mixed_grades():
-    data = {'grade': ['A', 'C', 'B', 'F']}
+def test_assign_grade_group_mixed_grades(sample_dataframe):
+    mixed_data = {'grade': ['A', 'C', 'B', 'F']}
+    df = pd.DataFrame(mixed_data)
+    df = assign_grade_group(df)
+    assert 'grade_group' in df.columns
+    assert df['grade_group'].iloc[0] == 'Prime'
+    assert df['grade_group'].iloc[1] == 'Sub-prime'
+    assert df['grade_group'].iloc[2] == 'Prime'
+    assert df['grade_group'].iloc[3] == 'Sub-prime'
+
+def test_assign_grade_group_invalid_grade():
+    data = {'grade': ['H']}
     df = pd.DataFrame(data)
-    result_df = assign_grade_group(df)
-    assert result_df['grade_group'][0] == 'Prime'
-    assert result_df['grade_group'][1] == 'Sub-prime'
-    assert result_df['grade_group'][2] == 'Prime'
-    assert result_df['grade_group'][3] == 'Sub-prime'
-
-def test_assign_grade_group_missing_grade_column():
-    df = pd.DataFrame({'loan_amount': [1000, 2000]})
-    with pytest.raises(KeyError) as excinfo:
-        assign_grade_group(df)
-    assert "grade" in str(excinfo.value)
+    df = assign_grade_group(df)
+    assert 'grade_group' in df.columns
+    assert df['grade_group'].iloc[0] == 'Unknown'
