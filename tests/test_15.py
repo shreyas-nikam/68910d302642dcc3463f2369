@@ -1,11 +1,11 @@
 import pytest
 import pandas as pd
-from definition_5a61c14bea4848949831b98985e1099f import aggregate_lgd_by_cohort
+from definition_2fca494db7c6407bac814581ec7166e8 import aggregate_lgd_by_cohort
 
 @pytest.fixture
-def sample_df():
-    data = {'origination_date': pd.to_datetime(['2020-01-01', '2020-01-01', '2020-02-01', '2020-02-01', '2020-03-01']),
-            'lgd': [0.1, 0.2, 0.3, 0.4, 0.5]}
+def sample_dataframe():
+    data = {'cohort': ['2023-Q1', '2023-Q1', '2023-Q2', '2023-Q2', '2023-Q3'],
+            'LGD': [0.1, 0.2, 0.3, 0.4, 0.5]}
     return pd.DataFrame(data)
 
 def test_aggregate_lgd_by_cohort_empty_df():
@@ -13,38 +13,34 @@ def test_aggregate_lgd_by_cohort_empty_df():
     result = aggregate_lgd_by_cohort(df)
     assert result.empty
 
-def test_aggregate_lgd_by_cohort_basic_aggregation(sample_df):
-    result = aggregate_lgd_by_cohort(sample_df)
-    expected_data = {'origination_date': pd.to_datetime(['2020-01-01', '2020-02-01', '2020-03-01']),
-                     'lgd': [0.15, 0.35, 0.5]}
-    expected = pd.DataFrame(expected_data).set_index('origination_date')
-    pd.testing.assert_frame_equal(result, expected)
-
-def test_aggregate_lgd_by_cohort_with_other_columns(sample_df):
-    sample_df['loan_amount'] = [1000, 2000, 1500, 2500, 3000]
-    result = aggregate_lgd_by_cohort(sample_df)
-    expected_data = {'origination_date': pd.to_datetime(['2020-01-01', '2020-02-01', '2020-03-01']),
-                     'lgd': [0.15, 0.35, 0.5]}
-    expected = pd.DataFrame(expected_data).set_index('origination_date')
-    pd.testing.assert_frame_equal(result, expected)
-
-def test_aggregate_lgd_by_cohort_different_date_formats():
-    data = {'origination_date': ['2020-01-01', '2020-01-01', '2020-02-01', '2020-02-01', '2020-03-01'],
-            'lgd': [0.1, 0.2, 0.3, 0.4, 0.5]}
-    df = pd.DataFrame(data)
-    df['origination_date'] = pd.to_datetime(df['origination_date'])
+def test_aggregate_lgd_by_cohort_single_cohort(sample_dataframe):
+    df = sample_dataframe[sample_dataframe['cohort'] == '2023-Q1']
     result = aggregate_lgd_by_cohort(df)
-    expected_data = {'origination_date': pd.to_datetime(['2020-01-01', '2020-02-01', '2020-03-01']),
-                     'lgd': [0.15, 0.35, 0.5]}
-    expected = pd.DataFrame(expected_data).set_index('origination_date')
-    pd.testing.assert_frame_equal(result, expected)
+    assert not result.empty
+    assert 'cohort' in result.columns
+    assert 'mean_LGD' in result.columns
+    assert result['mean_LGD'].iloc[0] == 0.15
 
-def test_aggregate_lgd_by_cohort_missing_lgd_values():
-    data = {'origination_date': pd.to_datetime(['2020-01-01', '2020-01-01', '2020-02-01', '2020-02-01', '2020-03-01']),
-            'lgd': [0.1, None, 0.3, 0.4, 0.5]}
+def test_aggregate_lgd_by_cohort_multiple_cohorts(sample_dataframe):
+    result = aggregate_lgd_by_cohort(sample_dataframe)
+    assert not result.empty
+    assert len(result) == 3
+    assert 'cohort' in result.columns
+    assert 'mean_LGD' in result.columns
+    assert result['mean_LGD'].iloc[0] == 0.15 #mean of cohort 2023-Q1
+
+def test_aggregate_lgd_by_cohort_missing_lgd_values(sample_dataframe):
+    df = sample_dataframe.copy()
+    df.loc[0, 'LGD'] = None
+    result = aggregate_lgd_by_cohort(df)
+    assert not result.empty
+    assert result['mean_LGD'].iloc[0] == 0.2
+
+def test_aggregate_lgd_by_cohort_mixed_data_types():
+    data = {'cohort': ['2023-Q1', '2023-Q1', '2023-Q2'],
+            'LGD': [0.1, '0.2', 0.3]}
     df = pd.DataFrame(data)
     result = aggregate_lgd_by_cohort(df)
-    expected_data = {'origination_date': pd.to_datetime(['2020-01-01', '2020-02-01', '2020-03-01']),
-                     'lgd': [0.1, 0.35, 0.5]}
-    expected = pd.DataFrame(expected_data).set_index('origination_date')
-    pd.testing.assert_frame_equal(result, expected)
+    assert not result.empty
+    assert len(result) == 2
+    assert result['mean_LGD'].iloc[0] == 0.15
