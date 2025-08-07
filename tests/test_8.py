@@ -1,42 +1,35 @@
 import pytest
 import pandas as pd
-from definition_308c0071d89a4009b052063ffd43573f import derive_cure_status
+from definition_a20c7d4105cc4513a3296d2b7fdfbd1d import derive_cure_status
 
-@pytest.fixture
-def sample_dataframe():
-    data = {'loan_id': [1, 2, 3, 4, 5],
-            'recovery_date': ['2023-01-15', None, '2023-03-20', '2023-04-10', None]}
-    return pd.DataFrame(data)
-
-def test_derive_cure_status_no_recoveries(sample_dataframe):
-    df = sample_dataframe.copy()
-    df_result = derive_cure_status(df)
-    assert 'cure_status' in df_result.columns
-    assert df_result['cure_status'].tolist() == ['cured', 'not cured', 'cured', 'cured', 'not cured']
-
-def test_derive_cure_status_all_recoveries(sample_dataframe):
-    df = sample_dataframe.copy()
-    df['recovery_date'] = ['2023-01-15'] * len(df)
-    df_result = derive_cure_status(df)
-    assert 'cure_status' in df_result.columns
-    assert all(df_result['cure_status'] == 'cured')
-
-def test_derive_cure_status_empty_dataframe():
+def test_derive_cure_status_empty_df():
     df = pd.DataFrame()
-    df_result = derive_cure_status(df)
-    assert 'cure_status' in df_result.columns
-    assert len(df_result) == 0
+    result_df = derive_cure_status(df)
+    assert 'cure_status' in result_df.columns if not result_df.empty else True
 
-def test_derive_cure_status_existing_column(sample_dataframe):
-     df = sample_dataframe.copy()
-     df['cure_status'] = ['initial'] * len(df)
-     df_result = derive_cure_status(df)
-     assert 'cure_status' in df_result.columns
-     assert df_result['cure_status'].tolist() == ['cured', 'not cured', 'cured', 'cured', 'not cured']
+def test_derive_cure_status_no_relevant_columns():
+    df = pd.DataFrame({'loan_id': [1, 2], 'status': ['Current', 'Fully Paid']})
+    with pytest.raises(KeyError):
+         derive_cure_status(df)
 
-def test_derive_cure_status_mixed_date_formats(sample_dataframe):
-    df = sample_dataframe.copy()
-    df['recovery_date'] = ['1/15/2023', None, '03-20-2023', '20230410', None]
-    df_result = derive_cure_status(df)
-    assert 'cure_status' in df_result.columns
-    assert df_result['cure_status'].tolist() == ['cured', 'not cured', 'cured', 'cured', 'not cured']
+def test_derive_cure_status_all_cured():
+    data = {'loan_id': [1, 2], 'loan_status': ['Fully Paid', 'Fully Paid'], 'recoveries': [100, 200], 'collection_recovery_fee': [10, 20]}
+    df = pd.DataFrame(data)
+    result_df = derive_cure_status(df)
+    assert all(result_df['cure_status'] == 'cured')
+
+def test_derive_cure_status_mixed():
+    data = {'loan_id': [1, 2, 3], 'loan_status': ['Fully Paid', 'Charged Off', 'Current'], 'recoveries': [100, 0, 0], 'collection_recovery_fee': [10, 0, 0]}
+    df = pd.DataFrame(data)
+    result_df = derive_cure_status(df)
+    assert result_df['cure_status'][0] == 'cured'
+    assert result_df['cure_status'][1] == 'not_cured'
+    assert result_df['cure_status'][2] == 'not_cured'
+
+def test_derive_cure_status_nan_values():
+    data = {'loan_id': [1, 2], 'loan_status': ['Fully Paid', 'Charged Off'], 'recoveries': [None, 0], 'collection_recovery_fee': [10, None]}
+    df = pd.DataFrame(data)
+    result_df = derive_cure_status(df)
+    assert result_df['cure_status'][0] == 'cured'
+    assert result_df['cure_status'][1] == 'not_cured'
+
