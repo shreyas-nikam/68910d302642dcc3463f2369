@@ -1,17 +1,35 @@
 import pytest
-from definition_95f21b6f76f4451da29faed64e91dda0 import pv_cashflows
+import pandas as pd
+from definition_9a8efdb122c84d9b81a2da31cbd53986 import pv_cashflows
 
-@pytest.mark.parametrize("cashflows, interest_rate, time_to_payment, expected", [
-    ([100, 100, 100], 0.05, [1, 2, 3], 272.32),
-    ([500], 0.1, [5], 310.46),
-    ([200, 300], 0.0, [1, 2], 500.00),
-    ([100, 50], 0.02, [0.5, 1], 147.56),
-    ([100], -0.5, [1], ValueError)
-])
-def test_pv_cashflows(cashflows, interest_rate, time_to_payment, expected):
-    if expected == ValueError:
-        with pytest.raises(ValueError):
-            pv_cashflows(cashflows, interest_rate, time_to_payment)
-    else:
-        result = pv_cashflows(cashflows, interest_rate, time_to_payment)
-        assert round(result, 2) == round(expected, 2)
+@pytest.fixture
+def sample_dataframe():
+    data = {'cashflow': [100, 110, 121], 'time': [1, 2, 3]}
+    return pd.DataFrame(data)
+
+def test_pv_cashflows_positive_rate(sample_dataframe):
+    df = pv_cashflows(sample_dataframe.copy(), 0.1)
+    assert 'present_value' in df.columns
+    assert df['present_value'].sum() > 0
+
+def test_pv_cashflows_zero_rate(sample_dataframe):
+    df = pv_cashflows(sample_dataframe.copy(), 0.0)
+    assert 'present_value' in df.columns
+    assert df['present_value'].sum() == sample_dataframe['cashflow'].sum()
+
+def test_pv_cashflows_negative_cashflows():
+    data = {'cashflow': [-100, -110, -121], 'time': [1, 2, 3]}
+    df = pd.DataFrame(data)
+    df_pv = pv_cashflows(df.copy(), 0.1)
+    assert 'present_value' in df_pv.columns
+    assert df_pv['present_value'].sum() < 0
+
+def test_pv_cashflows_empty_dataframe():
+    df = pd.DataFrame({'cashflow': [], 'time': []})
+    df_pv = pv_cashflows(df.copy(), 0.1)
+    assert 'present_value' in df_pv.columns
+    assert len(df_pv) == 0
+
+def test_pv_cashflows_non_numeric_discount_rate(sample_dataframe):
+    with pytest.raises(TypeError):
+        pv_cashflows(sample_dataframe.copy(), 'abc')
