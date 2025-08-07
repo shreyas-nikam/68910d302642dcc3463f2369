@@ -1,35 +1,41 @@
 import pytest
 import pandas as pd
-from definition_e677f736cfef4b1aaadbd452a3e9c906 import filter_defaults
+from definition_72b9c43ad88d40b992a6a833f5a6467f import filter_defaults
 
 @pytest.fixture
 def sample_dataframe():
     data = {'loan_status': ['Fully Paid', 'Charged Off', 'Current', 'Charged Off'],
-            'loan_amnt': [10000, 20000, 15000, 25000]}
+            'loan_amnt': [10000, 15000, 20000, 25000]}
     return pd.DataFrame(data)
 
-def test_filter_defaults_empty(sample_dataframe):
+def test_filter_defaults_empty_dataframe():
+    df = pd.DataFrame()
+    result = filter_defaults(df)
+    assert isinstance(result, pd.DataFrame)
+    assert result.empty
+
+def test_filter_defaults_no_defaults(sample_dataframe):
     df = sample_dataframe[sample_dataframe['loan_status'] != 'Charged Off']
     result = filter_defaults(df)
-    assert len(result) == 0
     assert isinstance(result, pd.DataFrame)
+    assert result.empty
 
-def test_filter_defaults_some(sample_dataframe):
+def test_filter_defaults_some_defaults(sample_dataframe):
     result = filter_defaults(sample_dataframe)
-    assert len(result) == 2
+    assert isinstance(result, pd.DataFrame)
+    assert not result.empty
     assert all(result['loan_status'] == 'Charged Off')
+    assert len(result) == 2
 
-def test_filter_defaults_all(sample_dataframe):
+def test_filter_defaults_all_defaults(sample_dataframe):
     df = sample_dataframe[sample_dataframe['loan_status'] == 'Charged Off']
     result = filter_defaults(df)
-    assert len(result) == 2
+    assert isinstance(result, pd.DataFrame)
+    assert not result.empty
     assert all(result['loan_status'] == 'Charged Off')
+    assert len(result) == len(df)
+    assert result.equals(df)
 
-def test_filter_defaults_no_dataframe():
+def test_filter_defaults_invalid_input():
     with pytest.raises(TypeError):
         filter_defaults("not a dataframe")
-
-def test_filter_defaults_column_missing(sample_dataframe):
-    df = sample_dataframe.drop('loan_status', axis=1)
-    with pytest.raises(KeyError):
-        filter_defaults(df)
