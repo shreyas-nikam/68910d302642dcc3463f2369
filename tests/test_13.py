@@ -1,68 +1,63 @@
 import pytest
-import pandas as pd
 import numpy as np
 from unittest.mock import MagicMock
-from definition_20f527393e12475695c48b0d32d1506a import predict_beta
+from definition_e88748cd1a43409db955f32806255206 import predict_beta
 
-def test_predict_beta_typical_case():
-    # Mock a model and input data
-    mock_model = MagicMock()
-    mock_model.predict.return_value = np.array([0.2, 0.5, 0.8])  # Predicted LGD values
-    X = pd.DataFrame({'feature1': [1, 2, 3], 'feature2': [4, 5, 6]})
-
-    # Call the function
-    predictions = predict_beta(mock_model, X)
-
-    # Assert that the predictions are as expected
+def test_predict_beta_valid_input():
+    """Test with valid model and input features."""
+    model_mock = MagicMock()
+    model_mock.predict.return_value = np.array([0.2, 0.5, 0.8])
+    X = np.array([[1, 2], [3, 4], [5, 6]])
+    
+    predictions = predict_beta(model_mock, X)
+    
+    assert isinstance(predictions, np.ndarray)
     assert np.allclose(predictions, [0.2, 0.5, 0.8])
+    model_mock.predict.assert_called_once_with(X)
 
 def test_predict_beta_empty_input():
-    # Mock a model and empty input data
-    mock_model = MagicMock()
-    X = pd.DataFrame({})  # Empty DataFrame
+    """Test with empty input features."""
+    model_mock = MagicMock()
+    model_mock.predict.return_value = np.array([])
+    X = np.array([])
 
-    # Call the function
-    try:
-        predictions = predict_beta(mock_model, X)
-    except Exception as e:
-        assert isinstance(e, AttributeError)
+    predictions = predict_beta(model_mock, X)
 
-
-def test_predict_beta_model_returns_invalid_values():
-    # Mock a model that returns values outside of 0-1 range
-    mock_model = MagicMock()
-    mock_model.predict.return_value = np.array([-0.1, 1.2, 0.5])
-    X = pd.DataFrame({'feature1': [1, 2, 3]})
-
-    # Call the function, it should proceed without clamping or erroring
-    predictions = predict_beta(mock_model, X)
-
-    # Ensure it returns the raw predictions, as clamping is not within the specified behaviour.
-    assert np.allclose(predictions, [-0.1, 1.2, 0.5])
+    assert isinstance(predictions, np.ndarray)
+    assert len(predictions) == 0
+    model_mock.predict.assert_called_once_with(X)
 
 
-def test_predict_beta_with_different_data_types():
-    # Mock a model
-    mock_model = MagicMock()
-    mock_model.predict.return_value = np.array([0.3, 0.6, 0.9])
+def test_predict_beta_model_returns_none():
+    """Test when the model returns None."""
+    model_mock = MagicMock()
+    model_mock.predict.return_value = None
+    X = np.array([[1, 2], [3, 4]])
 
-    # Input data with mixed data types
-    X = pd.DataFrame({'feature1': [1, 2.5, '3'], 'feature2': ['4', 5, 6.5]})
-    X['feature1'] = pd.to_numeric(X['feature1'], errors='coerce')
-    X['feature2'] = pd.to_numeric(X['feature2'], errors='coerce')
+    with pytest.raises(TypeError):
+        predict_beta(model_mock, X)
+    model_mock.predict.assert_called_once_with(X)
 
-    # Call the function
-    predictions = predict_beta(mock_model, X)
 
-    # Assert that the predictions are as expected
-    assert np.allclose(predictions, [0.3, 0.6, 0.9])
+def test_predict_beta_model_returns_invalid_type():
+    """Test when the model returns an invalid type (e.g., a string)."""
+    model_mock = MagicMock()
+    model_mock.predict.return_value = "invalid"
+    X = np.array([[1, 2], [3, 4]])
 
-def test_predict_beta_model_error():
-    # Mock a model that raises an exception
-    mock_model = MagicMock()
-    mock_model.predict.side_effect = ValueError("Prediction failed")
-    X = pd.DataFrame({'feature1': [1, 2, 3]})
+    with pytest.raises(TypeError):
+        predict_beta(model_mock, X)
+    model_mock.predict.assert_called_once_with(X)
 
-    # Call the function and check if it raises the same exception
-    with pytest.raises(ValueError, match="Prediction failed"):
-        predict_beta(mock_model, X)
+def test_predict_beta_model_returns_nan():
+    """Test when the model returns NaN values."""
+    model_mock = MagicMock()
+    model_mock.predict.return_value = np.array([np.nan, 0.5, 0.8])
+    X = np.array([[1, 2], [3, 4], [5, 6]])
+    
+    predictions = predict_beta(model_mock, X)
+    
+    assert isinstance(predictions, np.ndarray)
+    assert np.isnan(predictions[0])
+    assert np.allclose(predictions[1:], [0.5, 0.8])
+    model_mock.predict.assert_called_once_with(X)
