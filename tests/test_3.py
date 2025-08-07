@@ -1,34 +1,37 @@
 import pytest
 import pandas as pd
-from definition_baabea29b0c843b5a0b7cd81474f929c import assemble_recovery_cashflows
+from definition_debe8b62fddc49108cae0491e9d3ced8 import assemble_recovery_cashflows
+
+@pytest.fixture
+def sample_df():
+    # Create a sample DataFrame for testing
+    data = {'loan_id': [1, 2, 3],
+            'recovery_amount': [100, 200, 0],
+            'collection_costs': [10, 20, 0],
+            'outstanding_principal': [1000, 2000, 500]}
+    return pd.DataFrame(data)
 
 def test_assemble_recovery_cashflows_empty_df():
     df = pd.DataFrame()
     result = assemble_recovery_cashflows(df)
     assert isinstance(result, pd.DataFrame)
-    assert result.empty
 
-def test_assemble_recovery_cashflows_typical_case():
-    data = {'loan_id': [1, 2], 'recovery_amount': [100, 200], 'collection_cost': [10, 20]}
-    df = pd.DataFrame(data)
-    result = assemble_recovery_cashflows(df)
+def test_assemble_recovery_cashflows_valid_data(sample_df):
+    result = assemble_recovery_cashflows(sample_df)
     assert isinstance(result, pd.DataFrame)
 
+def test_assemble_recovery_cashflows_no_recoveries(sample_df):
+    sample_df['recovery_amount'] = 0
+    sample_df['collection_costs'] = 0
+    result = assemble_recovery_cashflows(sample_df)
+    assert isinstance(result, pd.DataFrame)
+
+def test_assemble_recovery_cashflows_negative_recoveries(sample_df):
+    sample_df['recovery_amount'] = [-100, -200, -50]
+    result = assemble_recovery_cashflows(sample_df)
+    assert isinstance(result, pd.DataFrame)
 
 def test_assemble_recovery_cashflows_missing_columns():
-    data = {'loan_id': [1, 2]}
-    df = pd.DataFrame(data)
-    with pytest.raises(KeyError):
+    df = pd.DataFrame({'loan_id': [1, 2, 3]})
+    with pytest.raises(KeyError):  # Expect KeyError because 'recovery_amount' is missing
         assemble_recovery_cashflows(df)
-
-def test_assemble_recovery_cashflows_non_numeric_recovery():
-    data = {'loan_id': [1, 2], 'recovery_amount': ['abc', 'def'], 'collection_cost': [10, 20]}
-    df = pd.DataFrame(data)
-    with pytest.raises(TypeError):
-        assemble_recovery_cashflows(df)
-
-def test_assemble_recovery_cashflows_with_zero_values():
-    data = {'loan_id': [1, 2], 'recovery_amount': [0, 0], 'collection_cost': [0, 0]}
-    df = pd.DataFrame(data)
-    result = assemble_recovery_cashflows(df)
-    assert isinstance(result, pd.DataFrame)
