@@ -1,4 +1,4 @@
-"""
+
 import streamlit as st
 st.set_page_config(page_title="QuLab", layout="wide")
 st.sidebar.image("https://www.quantuniversity.com/assets/img/logo5.jpg")
@@ -6,48 +6,68 @@ st.sidebar.divider()
 st.title("QuLab")
 st.divider()
 st.markdown("""
-In this lab, we will explore Loss Given Default (LGD) models, a crucial component of credit risk management. LGD represents the expected loss if a borrower defaults on a loan.  This application provides an interactive environment to understand and build LGD models using real-world data and statistical techniques.
+In this lab, we delve into the intricate world of **Loss Given Default (LGD) models**, a critical component of credit risk management. LGD represents the proportion of an exposure that is lost when a borrower defaults, after considering recoveries.
 
-We will cover the following key areas:
+### Understanding LGD Models
 
-- **Data Ingestion:** Loading and preprocessing the LendingClub dataset.
-- **Feature Engineering:** Creating relevant features from the raw data.
-- **EDA and Segmentation:** Exploring the data to identify key drivers of LGD and segment the loan population.
-- **TTC Model Building:** Developing a Through-The-Cycle (TTC) LGD model using regression techniques.
-- **PIT Overlay:** Incorporating macroeconomic factors to create a Point-In-Time (PIT) LGD model.
-- **Model Evaluation:** Evaluating the performance of the LGD models.
-- **Model Export:** Saving the trained models and processed data for future use.
+We will explore two primary approaches to LGD modeling:
 
-**Formulae**
+*   **Through-The-Cycle (TTC) LGD:** This approach aims to estimate the long-run average LGD, typically ignoring short-term economic fluctuations. It reflects the inherent loss characteristics of a portfolio over an entire economic cycle.
 
-Here are some of the important formulae that will be used in the app
+*   **Point-In-Time (PIT) LGD:** In contrast, PIT LGD models are sensitive to current economic conditions and macroeconomic factors. They provide a more dynamic view of potential losses, adjusting the TTC LGD based on the prevailing economic climate.
 
-*  $LGD = (Loss \: Amount) / (Exposure \: at \: Default)$
-*  $EAD = Outstanding \: Loan \: Amount + Accrued \: Interest - Any \: Pre-Default \: Payments$
+### Learning Objectives
 
-"""")
+Through this interactive application, you will:
+
+*   **Understand Components:** Grasp the fundamental elements of both TTC and PIT LGD models.
+*   **Data Proficiency:** Develop practical skills in extracting, cleaning, and engineering features from raw loan data for credit risk modeling.
+*   **Statistical Application:** Apply various statistical modeling techniques to accurately estimate LGD values.
+*   **Macroeconomic Integration:** Learn how to effectively incorporate macroeconomic factors to enhance the predictive power of LGD models.
+*   **Model Evaluation & Deployment:** Understand how to evaluate model performance rigorously and prepare model artifacts for seamless deployment.
+
+### Mathematical Foundations
+
+LGD is often calculated as:
+
+$$LGD = 1 - \frac{Recoveries}{Exposure \ at \ Default \ (EAD)}$$
+
+Where:
+
+*   **Recoveries** are the amounts recouped from a defaulted loan.
+*   **EAD** is the outstanding balance at the time of default, plus any additional drawdowns up to the point of default.
+
+For more advanced models, especially Beta regression for LGD, the formula for the mean of a Beta-distributed variable $\mu$ is often related to a linear predictor $X\beta$ through a link function, such as the logit link:
+
+$$\text{logit}(\mu) = \ln\left(\frac{\mu}{1-\mu}\right) = X\beta$$
+
+Thus, the predicted LGD $\hat{\mu}$ can be obtained by:
+
+$$\hat{\mu} = \frac{1}{1 + e^{-X\beta}}$$
+
+This application will guide you through each step, from raw data to a fully evaluated and ready-to-deploy LGD model, offering interactive visualizations and real-time feedback.
+""")
 # Your code starts here
 page = st.sidebar.selectbox(label="Navigation", options=["Data Ingestion", "Feature Engineering", "EDA and Segmentation", "TTC Model Building", "PIT Overlay", "Model Evaluation", "Model Export"])
 if page == "Data Ingestion":
-    from application_pages.data_ingestion import run_data_ingestion
-    run_data_ingestion()
+    from application_pages.page1 import run_page1
+    run_page1()
 elif page == "Feature Engineering":
-    from application_pages.feature_engineering import run_feature_engineering
-    run_feature_engineering()
+    from application_pages.page2 import run_page2
+    run_page2()
 elif page == "EDA and Segmentation":
-    from application_pages.eda_segmentation import run_eda_segmentation
-    run_eda_segmentation()
+    from application_pages.page3 import run_page3
+    run_page3()
 elif page == "TTC Model Building":
-    from application_pages.ttc_model_building import run_ttc_model_building
-    run_ttc_model_building()
+    from application_pages.page4 import run_page4
+    run_page4()
 elif page == "PIT Overlay":
-    from application_pages.pit_overlay import run_pit_overlay
-    run_pit_overlay()
+    from application_pages.page5 import run_page5
+    run_page5()
 elif page == "Model Evaluation":
-    from application_pages.model_evaluation import run_model_evaluation
-    run_model_evaluation()
+    from application_pages.page6 import run_page6
+    run_page6()
 elif page == "Model Export":
-    from application_pages.model_export import run_model_export
-    run_model_export()
+    from application_pages.page7 import run_page7
+    run_page7()
 # Your code ends
-"""
