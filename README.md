@@ -1,48 +1,29 @@
-# QuLab: Loss Given Default (LGD) Modeling Application
+# QuLab: Loss Given Default (LGD) Modeling with Streamlit
 
 ## Project Title and Description
 
-**QuLab** is a Streamlit web application designed for exploring and building Loss Given Default (LGD) models. LGD represents the expected loss when a borrower defaults on a loan. This application provides a step-by-step workflow for data ingestion, feature engineering, exploratory data analysis (EDA), Through-The-Cycle (TTC) model building, Point-In-Time (PIT) overlay implementation, model evaluation, and model export.  The application aims to provide an interactive environment for understanding and experimenting with LGD modeling techniques.
+**QuLab** is an interactive Streamlit application designed to guide users through the process of building and evaluating Loss Given Default (LGD) models. LGD is a critical component of credit risk management, representing the proportion of an exposure lost when a borrower defaults. This application explores two primary LGD modeling approaches: Through-The-Cycle (TTC) and Point-In-Time (PIT) models, enabling users to understand their components, apply statistical techniques, and integrate macroeconomic factors.
 
 ## Features
 
-*   **Data Ingestion:**
-    *   Upload LendingClub dataset in CSV format.
-    *   Data validation and error handling.
-*   **Feature Engineering:**
-    *   Filter data based on loan status.
-    *   Input discount rate for present value calculations.
-    *   Preview of filtered data.
-*   **EDA and Segmentation:**
-    *   Visualize data distributions using histograms.
-    *   Interactive data filtering using sliders based on selected features
-    *   Generate box plots to explore feature relationships.
-*   **TTC Model Building:**
-    *   Prepare data for TTC LGD model: filtering defaults, assembling recovery cashflows, computing Exposure at Default (EAD), present value of cashflows, and realized LGD.
-    *   Feature selection for model training.
-    *   Train a Beta regression model.
-    *   Apply an LGD floor to predictions.
-    *   Visualize model performance with scatter plots, calibration curves, and residual plots.
-*   **PIT Overlay:**
-    *   Incorporate macroeconomic factors (e.g., unemployment rate) for Point-In-Time (PIT) adjustments to TTC model.
-    *   Aggregate LGD by cohort.
-    *   Align macroeconomic data with LGD cohorts.
-    *   Visualize LGD and unemployment rate trends.
-    *   Conduct scenario analysis using stress testing.
-*   **Model Evaluation:**
-    *   Calculate Mean Absolute Error (MAE).
-    *   Visualize model performance metrics and plots.
-*   **Model Export:**
-    *   Download the test dataset.
-    *   (Future implementation) Download the trained TTC model.
+QuLab provides a comprehensive suite of features for LGD modeling:
+
+*   **Data Ingestion:** Upload LendingClub loan data from a CSV file or load a sample dataset directly within the application.
+*   **Feature Engineering:** Prepare raw loan data by filtering for defaulted loans, assembling recovery cashflows, computing Exposure at Default (EAD), and deriving the Realized LGD.
+*   **EDA and Segmentation:** Perform exploratory data analysis (EDA) to understand the distribution of LGD and identify relationships with loan characteristics using interactive visualizations.
+*   **TTC Model Building:** Build a Through-The-Cycle (TTC) LGD model using Beta regression to estimate the long-run average LGD. Configure model parameters and evaluate performance using various metrics and plots.
+*   **PIT Overlay:** Develop a Point-In-Time (PIT) overlay model to adjust the TTC LGD based on current macroeconomic conditions, enhancing the model's responsiveness to economic cycles.
+*   **Model Evaluation:** Evaluate the performance of both TTC and PIT models using metrics like Mean Absolute Error (MAE) and visualize error distributions.
+*   **Model Export:** Download trained LGD models and processed data for external use, auditing, or deployment.
 
 ## Getting Started
 
+These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
+
 ### Prerequisites
 
-*   Python 3.7+
-*   pip
-*   Virtual environment (recommended)
+*   **Python 3.7+:**  Ensure you have Python 3.7 or a later version installed.
+*   **Pip:** Python package installer.
 
 ### Installation
 
@@ -50,7 +31,7 @@
 
     ```bash
     git clone <repository_url>
-    cd <repository_directory>
+    cd QuLab
     ```
 
 2.  **Create a virtual environment (recommended):**
@@ -59,14 +40,40 @@
     python -m venv venv
     ```
 
-    *   Activate the virtual environment:
-        *   On Windows: `venv\Scripts\activate`
-        *   On macOS/Linux: `source venv/bin/activate`
+3.  **Activate the virtual environment:**
 
-3.  **Install the required packages:**
+    *   **On Windows:**
+
+        ```bash
+        venv\Scripts\activate
+        ```
+
+    *   **On macOS and Linux:**
+
+        ```bash
+        source venv/bin/activate
+        ```
+
+4.  **Install the required packages:**
 
     ```bash
-    pip install streamlit pandas scikit-learn plotly requests
+    pip install -r requirements.txt
+    ```
+
+    **Note**: A `requirements.txt` file needs to be created including all the necessary packages, using the following command:
+    ```bash
+    pip freeze > requirements.txt
+    ```
+    The `requirements.txt` should at least contain:
+    ```
+    streamlit
+    pandas
+    numpy
+    statsmodels
+    plotly
+    scikit-learn
+    joblib
+    requests
     ```
 
 ## Usage
@@ -77,60 +84,32 @@
     streamlit run app.py
     ```
 
-    This will open the application in your default web browser.
+2.  **Access the application:** Open your web browser and navigate to the URL displayed in the terminal (usually `http://localhost:8501`).
 
-2.  **Navigate through the application using the sidebar:**
+3.  **Navigate through the application:** Use the sidebar to select different pages:
 
-    *   **Data Ingestion:** Upload your LendingClub dataset (CSV file).
-    *   **Feature Engineering:** Filter the data, select relevant features, and set the discount rate.
-    *   **EDA and Segmentation:** Explore the data visually and identify potential segments.
-    *   **TTC Model Building:** Train the Through-The-Cycle (TTC) LGD model.
-    *   **PIT Overlay:** Incorporate macroeconomic factors for Point-In-Time (PIT) adjustments.
-    *   **Model Evaluation:** Evaluate the performance of your LGD model.
-    *   **Model Export:** Download the model and test dataset.
+    *   **Data Ingestion:** Load your loan data.
+    *   **Feature Engineering:** Process and transform the loaded data.
+    *   **EDA and Segmentation:** Explore the data through visualizations.
+    *   **TTC Model Building:** Configure and train the TTC LGD model.
+    *   **PIT Overlay:**  Build the PIT overlay model to adjust the TTC model.
+    *   **Model Evaluation:** Evaluate and compare model performance.
+    *   **Model Export:** Download the trained models and processed data.
+
+4.  **Follow the on-screen instructions:** Each page provides detailed guidance and interactive elements to guide you through the LGD modeling process.
 
 ## Project Structure
 
 ```
 QuLab/
-├── app.py                              # Main Streamlit application file
-├── application_pages/
-│   ├── data_ingestion.py           # Data ingestion module
-│   ├── feature_engineering.py      # Feature engineering module
-│   ├── eda_segmentation.py         # EDA and segmentation module
-│   ├── ttc_model_building.py       # TTC model building module
-│   ├── pit_overlay.py              # PIT overlay module
-│   ├── model_evaluation.py         # Model evaluation module
-│   ├── model_export.py             # Model export module
-│   └── utils.py                    # Utility functions
-├── README.md                           # This file
-└── venv/                               # Virtual environment (optional)
-```
-
-## Technology Stack
-
-*   **Streamlit:** Web application framework
-*   **Pandas:** Data manipulation and analysis
-*   **Scikit-learn:** Machine learning library
-*   **Plotly:** Interactive data visualization
-*   **Requests:** HTTP library for fetching data
-
-## Contributing
-
-Contributions are welcome! Please follow these guidelines:
-
-1.  Fork the repository.
-2.  Create a new branch for your feature or bug fix.
-3.  Make your changes and commit them with clear, descriptive messages.
-4.  Submit a pull request.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-
-## Contact
-
-For questions or issues, please contact:
-
-*   [Your Name/Organization]
-*   [Your Email/Website]
+├── app.py                       # Main Streamlit application file
+├── application_pages/         # Directory containing individual page scripts
+│   ├── page1.py               # Data Ingestion
+│   ├── page2.py               # Feature Engineering
+│   ├── page3.py               # EDA and Segmentation
+│   ├── page4.py               # TTC Model Building
+│   ├── page5.py               # PIT Overlay
+│   ├── page6.py               # Model Evaluation
+│   ├── page7.py               # Model Export
+├── requirements.txt           # List of Python dependencies
+├── README.md                  # This file
