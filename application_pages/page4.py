@@ -26,7 +26,16 @@ def temporal_split(df, train_size=0.8):
 
     # Determine the split point based on the number of unique quarters
     unique_quarters = df_sorted['default_quarter_str'].unique()
+    
+    if len(unique_quarters) < 2:
+        st.warning("Not enough unique quarters for temporal split. Returning full dataset as train and empty as OOT.")
+        return df_sorted, pd.DataFrame()
+
     split_point_idx = int(len(unique_quarters) * train_size)
+    if split_point_idx == 0: # Ensure at least one quarter in training if possible
+        split_point_idx = 1
+    if split_point_idx >= len(unique_quarters):
+        split_point_idx = len(unique_quarters) - 1 # Ensure at least one quarter in OOT if possible
 
     # Get the quarter at the split point
     split_quarter = unique_quarters[split_point_idx]
@@ -35,7 +44,8 @@ def temporal_split(df, train_size=0.8):
     oot_df = df_sorted[df_sorted['default_quarter_str'] >= split_quarter].copy()
 
     st.info(f"Data split into training ({len(train_df)} rows) and out-of-time ({len(oot_df)} rows) datasets.")
-    st.info(f"Training data up to quarter: {unique_quarters[split_point_idx-1] if split_point_idx > 0 else 'N/A'}")
+    if split_point_idx > 0:
+        st.info(f"Training data up to quarter: {unique_quarters[split_point_idx-1]}")
     st.info(f"OOT data from quarter: {split_quarter}")
     return train_df, oot_df
 
@@ -60,7 +70,7 @@ def fit_beta_regression(X_train, y_train):
         # Using GLM with Beta family and logit link function
         model = sm.GLM(y_train_adjusted, X_train_sm, family=sm.families.Beta()).fit()
         st.success("Beta regression model trained successfully!")
-        st.markdown(r"\\( \text{The Beta regression model estimates the mean of LGD (\(\mu\)) using a logit link function:}\ \text{logit}(\mu) = \ln\left(\frac{\mu}{1-\mu}\right) = X\beta\\)")
+        st.markdown(r"$$\text{The Beta regression model estimates the mean of LGD (}\mu\text{) using a logit link function:}\ \text{logit}(\mu) = \ln\left(\frac{\mu}{1-\mu}\right) = X\beta$$")
         st.subheader("Model Summary (Coefficients and p-values)")
         st.text(model.summary().as_text())
         return model
@@ -261,13 +271,108 @@ def run_page4():
         X_model = data_for_model[selected_features]
         y_model = data_for_model['LGD_realised']
 
-        # Temporal Split (using all data for training if no OOT is specifically required for this page)
-        # For a true TTC, we might train on all historical data. But for evaluation, a split is good.
-        # Let's use train_test_split as a placeholder for temporal_split here for simplicity for evaluation on this page.
-        # The `temporal_split` function is implemented and can be used to emphasize time-based validation.
-        train_df, oot_df = temporal_split(data_for_model, train_size=0.8)
+        with st.spinner("Splitting data and training model..."):
+            train_df, oot_df = temporal_split(data_for_model, train_size=0.8)
+            
+            if train_df.empty:
+                st.warning("Training dataset is empty after temporal split. Cannot train model.")
+                st.session_state["ttc_model"] = None
+                st.session_state["ttc_predictions_train"] = None
+                st.session_state["ttc_predictions_oot"] = None
+                return
 
-        if train_df.empty or oot_df.empty:
-            st.warning("Temporal split resulted in empty training or OOT sets. Using all data for training and evaluation for demonstration.")
-            X_train, y_train = X_model, y_model
-            X_oot, y_oot = X_model, y_model # Use full dataset for 
+            X_train = train_df[selected_features]
+            y_train = train_df['LGD_realised']
+            
+            # Train the Beta Regression Model
+            ttc_model = fit_beta_regression(X_train, y_train)
+
+            if ttc_model is not None:
+                st.session_state["ttc_model"] = ttc_model
+                
+                # Make predictions on training data
+                y_pred_train = predict_beta(ttc_model, X_train)
+                y_pred_train_floored = apply_lgd_floor(y_pred_train, lgd_floor)
+                st.session_state["ttc_predictions_train"] = y_pred_train_floored
+
+                st.subheader("Training Set Evaluation")
+                mae_train = mean_absolute_error(y_train, y_pred_train_floored)
+                st.metric(label="Mean Absolute Error (Training)", value=f"{mae_train:.4f}")
+
+                fig_pred_actual_train = plot_predicted_vs_actual(y_train, y_pred_train_floored, "Training Set: Predicted vs. Actual LGD")
+                st.plotly_chart(fig_pred_actual_train, use_container_width=True)
+
+                fig_calib_train = plot_calibration_curve(y_train, y_pred_train_floored, title="Training Set: LGD Calibration Curve")
+                st.plotly_chart(fig_calib_train, use_container_width=True)
+
+                fig_residuals_train = plot_residuals_vs_fitted(y_train, y_pred_train_floored, title="Training Set: Residuals vs. Fitted Values")
+                st.plotly_chart(fig_residuals_train, use_container_width=True)
+
+                # Make predictions on OOT data if available
+                if not oot_df.empty:
+                    X_oot = oot_df[selected_features]
+                    y_oot = oot_df['LGD_realised']
+                    
+                    # Ensure OOT features match training features
+                    # Handle cases where OOT data might be missing columns present in training
+                    missing_oot_cols = set(X_train.columns) - set(X_oot.columns)
+                    if missing_oot_cols:
+                        st.warning(f"OOT data is missing columns present in training set: {missing_oot_cols}. Filling with zeros for prediction.")
+                        for col in missing_oot_cols:
+                            X_oot[col] = 0.0 # Or use a more sophisticated imputation strategy
+                    
+                    # Reorder columns to match training data before prediction
+                    X_oot = X_oot[X_train.columns]
+
+                    y_pred_oot = predict_beta(ttc_model, X_oot)
+                    y_pred_oot_floored = apply_lgd_floor(y_pred_oot, lgd_floor)
+                    st.session_state["ttc_predictions_oot"] = y_pred_oot_floored
+                    st.session_state["oot_data"] = oot_df # Save OOT data for PIT overlay
+
+                    st.subheader("Out-of-Time (OOT) Set Evaluation")
+                    mae_oot = mean_absolute_error(y_oot, y_pred_oot_floored)
+                    st.metric(label="Mean Absolute Error (OOT)", value=f"{mae_oot:.4f}")
+
+                    fig_pred_actual_oot = plot_predicted_vs_actual(y_oot, y_pred_oot_floored, "OOT Set: Predicted vs. Actual LGD")
+                    st.plotly_chart(fig_pred_actual_oot, use_container_width=True)
+
+                    fig_calib_oot = plot_calibration_curve(y_oot, y_pred_oot_floored, title="OOT Set: LGD Calibration Curve")
+                    st.plotly_chart(fig_calib_oot, use_container_width=True)
+
+                    fig_residuals_oot = plot_residuals_vs_fitted(y_oot, y_pred_oot_floored, title="OOT Set: Residuals vs. Fitted Values")
+                    st.plotly_chart(fig_residuals_oot, use_container_width=True)
+
+                else:
+                    st.warning("No Out-of-Time (OOT) data available for evaluation.")
+                    st.session_state["ttc_predictions_oot"] = None
+                    st.session_state["oot_data"] = None
+            else:
+                st.error("TTC Model training failed. Check logs for errors.")
+
+    st.markdown("""
+    --- 
+    **Summary of TTC Model Building:**
+    *   TTC models provide a stable, long-term view of LGD, less affected by short-term economic cycles.
+    *   Beta regression is a suitable choice for modeling LGD due to its bounded nature (between 0 and 1).
+    *   Key evaluation plots like Predicted vs. Actual, Calibration Curve, and Residuals help assess the model's predictive power and bias.
+    """)
+
+    st.markdown("### Model Export (TTC Model)")
+    st.markdown("""
+    Once satisfied with the TTC model, you can download the trained model artifact for future use or deployment.
+    """)
+
+    if "ttc_model" in st.session_state and st.session_state["ttc_model"] is not None:
+        # Serialize the model using joblib
+        model_filename = "ttc_lgd_model.joblib"
+        joblib.dump(st.session_state["ttc_model"], model_filename)
+
+        with open(model_filename, "rb") as f:
+            st.download_button(
+                label="Download Trained TTC LGD Model",
+                data=f.read(),
+                file_name=model_filename,
+                mime="application/octet-stream"
+            )
+    else:
+        st.info("Train the TTC LGD model first to enable download.")
